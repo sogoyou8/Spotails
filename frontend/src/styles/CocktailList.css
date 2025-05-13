@@ -1,0 +1,176 @@
+body {
+    background-color: #121212;
+}
+
+.btn {
+    border-radius: 20px;
+}
+
+.cocktail-list .btn {
+    font-size: 1.5rem;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-radius: 30px;
+}
+
+.cocktail-theme {
+    font-weight: bold;
+    font-size: 2rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.cocktail-description {
+    color: white;
+    font-size: 2rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.cocktail-display {
+    height: 100%;
+    min-height: 60vh;
+    position: relative;
+    border-radius: 50px 0 0 50px;
+}
+
+.cocktail-infos {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    border-radius: 0 50px 50px 0;
+    padding: 9vh 5vw;
+    min-height: 50vh;
+}
+
+.cocktail-main-img {
+    max-height: 50vh;
+    object-fit: contain;
+    filter: drop-shadow(36px 17px 11px rgba(0, 0, 0, 0.5));
+    z-index: 2;
+}
+
+.cocktail-name {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    writing-mode: sideways-lr;
+    text-orientation: mixed;
+    font-size: 2rem;
+    font-weight: bold;
+    color: black;
+    z-index: 3;
+    max-height: 90%;
+    text-align: center;
+
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.favorite-star {
+    position: absolute;
+    right: 8px;
+    color: #ffc107;
+    font-size: 2.5rem;
+    z-index: 2;
+    text-shadow: 0 0 5px #000;
+}
+
+.star-filter {
+    color: #1ED760;
+}
+
+.star-filter:hover {
+    color: #1ED760;
+}
+
+.cocktail-thumb {
+    width: 200px;
+    min-width: 200px;
+    height: 200px;
+    object-fit: contain;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 20px;
+    transition: 0.3s;
+}
+
+@media (min-width: 767px) {
+    .cocktails-listing {
+        margin: 50px;
+    }
+}
+
+.cocktail-thumb:hover {
+    border-color: #fff;
+}
+
+@keyframes slideInRight {
+    0% {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+@keyframes slideInLeft {
+    0% {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutLeft {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+}
+
+.cocktail-display.animate-in {
+    animation: slideInRight 1s ease forwards;
+}
+
+.cocktail-display.animate-out {
+    animation: slideOutRight 1s ease forwards;
+}
+
+.cocktail-display-image.animate-in {
+    animation: slideInRight 2s ease forwards;
+}
+
+.cocktail-display-image.animate-out {
+    animation: slideOutRight 2s ease forwards;
+}
+
+.cocktail-infos.animate-in {
+    animation: slideInLeft 1s ease forwards;
+}
+
+.cocktail-infos.animate-out {
+    animation: slideOutLeft 1s ease forwards;
+}

@@ -1,0 +1,39 @@
+.panel-compte {
+    background-color: #1ED760;
+}
+
+.panel-compte h1 {
+    color: #121212 !important;
+}
+
+.onglets {
+    background-color: white;
+    border-radius: 20px !important;
+    box-shadow: rgba(0, 0, 0, 0.16) 0 1px 4px;
+}
+
+.onglet {
+    background-color: white;
+    border-radius: 20px;
+    box-shadow: rgba(0, 0, 0, 0.16) 0 1px 4px;
+}
+
+.active {
+    background-color: #1ED760 !important;
+    border-radius: 15px !important;
+    border: none;
+    box-shadow: rgba(0, 0, 0, 0.16) 0 1px 4px;
+}
+
+.list-group-item-action {
+    border: none;
+}
+
+.list-group-item-action:hover {
+    background-color: transparent !important;
+    color: #1ED760 !important;
+}
+
+.panel-compte input {
+    border-radius: 20px;
+}

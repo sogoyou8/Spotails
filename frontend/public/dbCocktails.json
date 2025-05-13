@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Virgin Mojito",
+    "image": "virgin-mojito.png",
+    "ingredients": ["Menthe fraîche", "Sucre de canne", "Citron vert", "Eau pétillante"],
+    "recipe": "Écraser la menthe avec le sucre et le citron, puis ajouter l’eau pétillante et des glaçons.",
+    "theme": "Rock",
+    "description": "Un classique sans alcool ultra frais et mentholé.",
+    "color": "#1dd7c2"
+  },
+  {
+    "name": "Sunset Paradise",
+    "image": "sunset-paradise.png",
+    "ingredients": ["Jus d'orange", "Jus d'ananas", "Grenadine", "Glaçons"],
+    "recipe": "Remplir un verre de glaçons, ajouter le jus d'orange et le jus d'ananas, finir avec un filet de grenadine.",
+    "theme": "Tropical",
+    "description": "Un cocktail sans alcool fruité et coloré parfait pour les soirées d'été.",
+    "color": "#ffa200"
+  },
+  {
+    "name": "Citrus Breeze",
+    "image": "citrus-breeze.png",
+    "ingredients": ["Jus de citron", "Sirop de sucre", "Eau pétillante", "Glaçons"],
+    "recipe": "Mélangez le jus de citron et le sirop de sucre dans un verre. Ajoutez de l’eau pétillante et des glaçons.",
+    "theme": "Citrus",
+    "description": "Un cocktail rafraîchissant et léger, idéal pour l'été.",
+    "color": "#1dd720"
+  },
+  {
+    "name": "Berry Fizz",
+    "image": "berry-fizz.png",
+    "ingredients": ["Framboises", "Mûres", "Sirop de cassis", "Eau gazeuse"],
+    "recipe": "Écrasez les fruits rouges au fond du verre, ajoutez le sirop et complétez avec de l’eau gazeuse.",
+    "theme": "Pop",
+    "description": "Un cocktail aux fruits rouges pétillant et acidulé.",
+    "color": "#ff4b91"
+  },
+  {
+    "name": "Pineapple Dream",
+    "image": "pineapple-dream.png",
+    "ingredients": ["Jus d'ananas", "Lait de coco", "Glaçons"],
+    "recipe": "Mélangez le jus d'ananas et le lait de coco dans un shaker avec des glaçons. Servez frais.",
+    "theme": "Exotic",
+    "description": "Un cocktail doux et crémeux aux saveurs exotiques.",
+    "color": "#ffd93d"
+  },
+  {
+    "name": "Green Garden",
+    "image": "green-garden.png",
+    "ingredients": ["Jus de concombre", "Menthe", "Sirop de sureau", "Eau pétillante"],
+    "recipe": "Mélangez le jus de concombre et le sirop de sureau, ajoutez la menthe et complétez avec de l’eau pétillante.",
+    "theme": "Nature",
+    "description": "Fraîcheur végétale et notes florales pour ce cocktail ultra frais.",
+    "color": "#56c596"
+  }
+]

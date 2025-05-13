@@ -1,0 +1,52 @@
+.auth-form h1 {
+    font-weight: bold !important;
+    color: #1ED760 !important;
+    padding-bottom: 10px;
+    text-shadow: #1ED760 0 0 4px !important;
+}
+
+.auth-form label {
+    color: white;
+    margin-left: 15px;
+}
+
+.auth-form .form-control {
+    background: #1ED760;
+    border: #137e39 3px solid;
+    transition: all 0.3s ease;
+    border-radius: 20px;
+}
+
+.auth-form .form-control:focus {
+    background: #24e06b;
+    border-color: #0f5f2b;
+    outline: none;
+    box-shadow: 0 0 10px #1ED760;
+}
+
+.auth-form .btn {
+    color: white;
+    background: #137e39;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.auth-form .submit-btn:hover,
+.auth-form .submit-btn:active,
+.auth-form .submit-btn:focus {
+    background: #1ED760 !important;
+    border-color: transparent !important;
+    box-shadow: 0 0 10px #1ED760;
+}
+
+.auth-form .display-pw-btn:hover,
+.auth-form .display-pw-btn:active,
+.auth-form .display-pw-btn:focus {
+    color: white !important;
+    background: #137e39 !important;
+    border-color: transparent !important;
+}
+
+.auth-form small {
+    color: #c5c5c5;
+}

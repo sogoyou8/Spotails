@@ -1,0 +1,99 @@
+.admin-dashboard h1 {
+    color: white;
+}
+
+.card {
+    background-color: #1ED760;
+    border-radius: 20px;
+}
+
+.admin-dashboard .card:hover {
+    background-color: #1bc558;
+}
+
+.managing-panel {
+    background-color: #1ED760;
+}
+
+.managing-panel input {
+    border-radius: 20px;
+    padding-left: 20px;
+}
+
+.btn-dark {
+    background-color: #121212;
+    color: white;
+    border: none !important;
+    padding: 10px 20px;
+    box-shadow: rgba(0, 0, 0, 0.24) 0 3px 8px;
+}
+
+.btn-dark:hover, .btn-dark:active {
+    background-color: #121212 !important;
+    color: #1ED760 !important;
+}
+
+.btn-dark:focus {
+    background-color: #121212;
+    color: #1ED760;
+}
+
+.cocktail-form {
+    background-color: #1ED760;
+    margin-bottom: 20px;
+}
+
+.cocktail-form .card {
+    border: none;
+}
+
+.cocktail-form .preview-card {
+    background-color: white;
+    border-radius: 70px 0 0 70px;
+    border-right: #bfbfbf dashed 2px;
+    padding-right: 0 !important;
+    max-height: 750px;
+    overflow-y: auto;
+}
+
+.card-body p {
+    white-space: pre-line;
+}
+
+.card-body .text-start {
+    margin-left: 50px;
+}
+
+.cocktail-form input, .cocktail-form textarea {
+    border-radius: 20px;
+}
+
+.cocktail-form .preview-card {
+    background-color: white;
+    border-radius: 70px 0 0 70px;
+    border-right: #bfbfbf dashed 2px;
+    padding-right: 0 !important;
+}
+
+.cocktail-form .filling-card {
+    background-color: white;
+    border-radius: 0 70px 70px 70px;
+}
+
+@media (max-width: 767px) {
+    .cocktail-form h3 {
+        margin-top: 10px;
+    }
+
+    .cocktail-form .preview-card {
+        border-radius: 70px 70px 0 0;
+        border-right: none;
+        border-bottom: #bfbfbf dashed 2px;
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .cocktail-form .filling-card {
+        border-radius: 0 0 70px 70px;
+    }
+}

@@ -1,0 +1,12 @@
+.footer {
+    background-color: #1ED760;
+}
+
+.footer a {
+    text-decoration: none;
+    color: #121212 !important;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}

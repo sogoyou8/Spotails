@@ -1,0 +1,33 @@
+.cocktail-name-detail {
+    color: white;
+    font-size: 4rem;
+    font-weight: bold;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-align: center;
+}
+
+.cocktail-detail-card {
+    position: relative;
+}
+
+.favorite-star-detail {
+    position: absolute;
+    right: 20px;
+    top: 0;
+    color: #ffc107;
+    font-size: 4rem;
+    z-index: 2;
+    text-shadow: 0 0 5px #000;
+}
+
+.cocktail-recipe h1 {
+    text-align: center;
+}
+.cocktail-recipe p {
+    white-space: pre-line;
+}
+
+.person-selector {
+    background: #121212;
+}

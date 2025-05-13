@@ -1,0 +1,153 @@
+[{
+  "_id": {
+    "$oid": "6812219129e063c160fd89b3"
+  },
+  "name": "Rock'n'Roll Sour",
+  "image": "1746832841096058f344ff2bf.png",
+  "recipe": "**1 -** *Versez le bourbon*, le jus de citron et le sirop de sucre dans un shaker.  \r\n**2 -** *Ajoutez le blanc d'œuf* dans le shaker pour une texture mousseuse.  \r\n**3 -** *Secouez vigoureusement* sans glace pour bien mélanger les ingrédients et créer une mousse.  \r\n**4 -** *Ajoutez des glaçons* et *shakez* à nouveau pendant 10-15 secondes pour bien refroidir le mélange.  \r\n**5 -** *Filtrez dans un verre à whisky* préalablement refroidi.  \r\n**6 -** *Garnissez avec un zeste de citron* et un cerise pour une touche de couleur rock.",
+  "theme": "Rock",
+  "description": "Un cocktail puissant et énergique, parfait pour les fans de rock qui aiment les saveurs intenses et acides.",
+  "__v": 3,
+  "color": "#f44336",
+  "thumbnail": "1746832841098899f89c601bf.gif",
+  "ingredients": [
+    {
+      "$oid": "681e8dc9bb098e730c0c8964"
+    },
+    {
+      "$oid": "681e8dc9bb098e730c0c8965"
+    },
+    {
+      "$oid": "681e8dc9bb098e730c0c8966"
+    },
+    {
+      "$oid": "681e8dc9bb098e730c0c8967"
+    },
+    {
+      "$oid": "681e8dc9bb098e730c0c8968"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "name": "Rap Citrus Twist",
+  "image": "1746833802786984e20a48aba.png",
+  "recipe": "**1 -** *Versez la vodka* et *le triple sec* dans un shaker.  \r\n**2 -** *Ajoutez le sirop de citron* pour une touche sucrée et acidulée.  \r\n**3 -** *Ajoutez le jus d'orange frais* et *le jus de lime* pour renforcer l'agrumes.  \r\n**4 -** *Remplissez le shaker de glaçons* et shakez fort pour un mélange bien frais.  \r\n**5 -** *Filtrez le cocktail dans un verre highball* rempli de glaçons.  \r\n**6 -** *Garnissez avec une tranche d'orange* pour ajouter du style et du goût.\r\n",
+  "theme": "Rap",
+  "description": "Un cocktail audacieux avec un twist d'agrumes, inspiré des sons rythmés et percutants du rap.",
+  "__v": 4,
+  "color": "#212121",
+  "thumbnail": "1746833785983f8a76d705522.gif",
+  "ingredients": [
+    {
+      "$oid": "681e918abb098e730c0c89f8"
+    },
+    {
+      "$oid": "681e918abb098e730c0c89f9"
+    },
+    {
+      "$oid": "681e918abb098e730c0c89fa"
+    },
+    {
+      "$oid": "681e918abb098e730c0c89fb"
+    },
+    {
+      "$oid": "681e918abb098e730c0c89fc"
+    },
+    {
+      "$oid": "681e918abb098e730c0c89fd"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "6814d759ce58c5eb3d65256e"
+  },
+  "name": "Jazz Breeze",
+  "image": "1746834261578c36c669dcb79.png",
+  "recipe": "**1 -** *Versez le gin* et *la liqueur de fleur de sureau* dans un shaker.  \r\n**2 -** *Ajoutez le sirop de sucre* pour une douceur agréable.  \r\n**3 -** *Ajoutez le jus de citron vert* pour une touche acide et rafraîchissante.  \r\n**4 -** *Shakez le tout avec des glaçons* jusqu'à obtenir un mélange bien frais.  \r\n**5 -** *Filtrez dans un verre de type coupette* ou un verre à cocktail.  \r\n**6 -** *Complétez avec un peu de tonic* pour un effet pétillant.  \r\n**7 -** *Décorez avec un brin de menthe* et *une tranche de citron* pour une touche élégante.\r\n",
+  "theme": "Jazz",
+  "description": "Un cocktail rafraîchissant et léger, inspiré par l'élégance et la fluidité du jazz, parfait pour une soirée détendue.",
+  "__v": 2,
+  "color": "#ffc107",
+  "thumbnail": "174683426157926e817321cc6.gif",
+  "ingredients": [
+    {
+      "$oid": "681e9355bb098e730c0c8a3e"
+    },
+    {
+      "$oid": "681e9355bb098e730c0c8a3f"
+    },
+    {
+      "$oid": "681e9355bb098e730c0c8a40"
+    },
+    {
+      "$oid": "681e9355bb098e730c0c8a41"
+    },
+    {
+      "$oid": "681e9355bb098e730c0c8a42"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "681e337b7fa0e1e94cfd3cf2"
+  },
+  "name": "Disco Lemonade",
+  "image": "17468345185729fd953275095.png",
+  "thumbnail": "1746834518573e1c2e2799d9f.gif",
+  "ingredients": [
+    {
+      "$oid": "681e9456bb098e730c0c8a79"
+    },
+    {
+      "$oid": "681e9456bb098e730c0c8a7a"
+    },
+    {
+      "$oid": "681e9456bb098e730c0c8a7b"
+    },
+    {
+      "$oid": "681e9456bb098e730c0c8a7c"
+    },
+    {
+      "$oid": "681e9456bb098e730c0c8a7d"
+    }
+  ],
+  "recipe": "**1 -** *Dans un shaker, versez la vodka* et *le limoncello*.  \r\n**2 -** *Ajoutez le sirop de grenadine* pour la couleur et le goût sucré.  \r\n**3 -** *Ajoutez le jus de citron frais* pour un côté acide qui équilibre la douceur.  \r\n**4 -** *Secouez vigoureusement* avec des glaçons pour bien mélanger les ingrédients.  \r\n**5 -** *Filtrez dans un verre haut* rempli de glaçons.  \r\n**6 -** *Complétez avec de la limonade* pour une touche pétillante.  \r\n**7 -** *Garnissez avec une rondelle de citron* et *une cerise* pour ajouter à l'effet visuel disco.\r\n",
+  "theme": "Disco",
+  "description": "Un cocktail pétillant et coloré, vibrant comme les lumières d'une piste de danse disco.",
+  "color": "#ffeb2b",
+  "__v": 10
+},
+{
+  "_id": {
+    "$oid": "681e95febb098e730c0c8a96"
+  },
+  "name": "Classique Sunset",
+  "image": "1746834942659959d6992edf3.png",
+  "thumbnail": "1746834942661e6c3c9e95578.gif",
+  "ingredients": [
+    {
+      "$oid": "681e95febb098e730c0c8a98"
+    },
+    {
+      "$oid": "681e95febb098e730c0c8a99"
+    },
+    {
+      "$oid": "681e95febb098e730c0c8a9a"
+    },
+    {
+      "$oid": "681e95febb098e730c0c8a9b"
+    },
+    {
+      "$oid": "681e95febb098e730c0c8a9c"
+    }
+  ],
+  "recipe": "**1 -** *Versez le cognac* dans un shaker élégant, symbole du raffinement classique.  \r\n**2 -** *Ajoutez le jus d’abricot* et *le nectar de pêche* pour des notes fruitées et délicates.  \r\n**3 -** *Ajoutez le sirop de vanille*, qui viendra adoucir le mélange et rappeler la rondeur des compositions classiques.  \r\n**4 -** *Incorporez le jus de citron* pour une touche acidulée, et *quelques gouttes d’Angostura* si vous souhaitez ajouter une profondeur aromatique.  \r\n**5 -** *Remplissez le shaker de glaçons* et *secouez doucement*, comme une partition jouée en douceur.  \r\n**6 -** *Filtrez dans un verre coupette* préalablement refroidi.  \r\n**7 -** *Décorez avec une fine rondelle d’abricot séché* et *un zeste de citron torsadé* pour la note finale.  \r\n**8 -** *Savourez ce cocktail élégant*, parfait pour accompagner un adagio ou une valse légère.\r\n",
+  "theme": "Classique",
+  "description": "Un cocktail raffiné et équilibré, à la fois doux et légèrement épicé, évoquant la subtilité et l’émotion d’un concerto sous le crépuscule.",
+  "color": "#cdbe70",
+  "__v": 1
+}]

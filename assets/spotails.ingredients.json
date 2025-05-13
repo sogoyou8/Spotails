@@ -1,0 +1,312 @@
+[{
+  "_id": {
+    "$oid": "681e8dc9bb098e730c0c8964"
+  },
+  "name": "Bourdon",
+  "quantity": 50,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6812219129e063c160fd89b3"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e8dc9bb098e730c0c8965"
+  },
+  "name": "Jus de citron frais",
+  "quantity": 25,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6812219129e063c160fd89b3"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e8dc9bb098e730c0c8966"
+  },
+  "name": "Sirop de sucre",
+  "quantity": 15,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6812219129e063c160fd89b3"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e8dc9bb098e730c0c8968"
+  },
+  "name": "Glaçons",
+  "quantity": 3,
+  "unit": "x",
+  "cocktail": {
+    "$oid": "6812219129e063c160fd89b3"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e8dc9bb098e730c0c8967"
+  },
+  "name": "Blanc d'œuf",
+  "quantity": 1,
+  "unit": "x",
+  "cocktail": {
+    "$oid": "6812219129e063c160fd89b3"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e918abb098e730c0c89f8"
+  },
+  "name": "Vodka",
+  "quantity": 50,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e918abb098e730c0c89f9"
+  },
+  "name": "Triple sec",
+  "quantity": 25,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e918abb098e730c0c89fa"
+  },
+  "name": "Sirop de citron",
+  "quantity": 15,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e918abb098e730c0c89fc"
+  },
+  "name": "Jus de lime",
+  "quantity": 10,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e918abb098e730c0c89fb"
+  },
+  "name": "Jus d'orange frais",
+  "quantity": 20,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e918abb098e730c0c89fd"
+  },
+  "name": "Glaçons",
+  "quantity": 3,
+  "unit": "x",
+  "cocktail": {
+    "$oid": "6814c28de35f180dcb296ebb"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9355bb098e730c0c8a3e"
+  },
+  "name": "Gin",
+  "quantity": 40,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814d759ce58c5eb3d65256e"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9355bb098e730c0c8a3f"
+  },
+  "name": "Liqueur de fleur de sureau",
+  "quantity": 20,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814d759ce58c5eb3d65256e"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9355bb098e730c0c8a40"
+  },
+  "name": "Sirop de sucre",
+  "quantity": 15,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814d759ce58c5eb3d65256e"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9355bb098e730c0c8a42"
+  },
+  "name": "Tonic",
+  "quantity": 10,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814d759ce58c5eb3d65256e"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9355bb098e730c0c8a41"
+  },
+  "name": "Jus de citron vert",
+  "quantity": 30,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "6814d759ce58c5eb3d65256e"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9456bb098e730c0c8a79"
+  },
+  "name": "Vodka",
+  "quantity": 40,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e337b7fa0e1e94cfd3cf2"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9456bb098e730c0c8a7a"
+  },
+  "name": "Limoncello",
+  "quantity": 30,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e337b7fa0e1e94cfd3cf2"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9456bb098e730c0c8a7b"
+  },
+  "name": "Sirop de grenadine",
+  "quantity": 20,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e337b7fa0e1e94cfd3cf2"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9456bb098e730c0c8a7c"
+  },
+  "name": "Jus de citron frais",
+  "quantity": 20,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e337b7fa0e1e94cfd3cf2"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e9456bb098e730c0c8a7d"
+  },
+  "name": "Soda (type limonade)",
+  "quantity": 40,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e337b7fa0e1e94cfd3cf2"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e95febb098e730c0c8a98"
+  },
+  "name": "Cognac",
+  "quantity": 40,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e95febb098e730c0c8a96"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e95febb098e730c0c8a99"
+  },
+  "name": "Jus d'abricot frais",
+  "quantity": 30,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e95febb098e730c0c8a96"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e95febb098e730c0c8a9c"
+  },
+  "name": "Citron frais",
+  "quantity": 15,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e95febb098e730c0c8a96"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e95febb098e730c0c8a9a"
+  },
+  "name": "Nectar de pêche",
+  "quantity": 20,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e95febb098e730c0c8a96"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681e95febb098e730c0c8a9b"
+  },
+  "name": "Sirop de vanille",
+  "quantity": 10,
+  "unit": "ml",
+  "cocktail": {
+    "$oid": "681e95febb098e730c0c8a96"
+  },
+  "__v": 0
+}]
