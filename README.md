@@ -1,4 +1,4 @@
-# Spotails - Cocktail Music Experience
+# Spotails - Cocktail Music Experience 123
 
 Spotails est un site dédié à l'art du cocktail, inspiré par l'univers musical. Le site permet aux utilisateurs de découvrir une variété de cocktails soigneusement sélectionnés, tout en étant immergés dans un univers visuel dynamique, où chaque cocktail est lié à une thématique musicale. En utilisant **Spotail**, les utilisateurs peuvent consulter des informations détaillées sur chaque cocktail, incluant des images, des ingrédients, des recettes et bien plus.
 
