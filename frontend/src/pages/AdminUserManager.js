@@ -3,10 +3,12 @@ import axios from "axios";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import {jwtDecode} from "jwt-decode";
 import { processError } from '../utils/errorUtils';
+import useDebounce from "../hooks/useDebounce";
 
 const AdminUserManager = () => {
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
     useEffect(() => {
         fetchUsers();
@@ -85,8 +87,9 @@ const AdminUserManager = () => {
     };
 
     const filteredUsers = users.filter(user =>
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+        !debouncedSearchTerm ||
+        user.username.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
     );
 
     return (

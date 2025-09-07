@@ -22,6 +22,10 @@ const AdminCocktailForm = () => {
     const [ingredientsList, setIngredientsList] = useState([
         { name: "", quantity: "", unit: "" }
     ]);
+
+    // ajout du state pour gérer les erreurs de validation
+    const [errorMessage, setErrorMessage] = useState("");
+
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -80,11 +84,37 @@ const AdminCocktailForm = () => {
         setIngredientsList(newIngredients);
     };
 
+    // ajout helper validation
+    const validateIngredients = (ingredientsArray) => {
+      if (!Array.isArray(ingredientsArray) || ingredientsArray.length === 0) {
+        return { ok: false, message: "Ajoutez au moins un ingrédient." };
+      }
+      for (let i = 0; i < ingredientsArray.length; i++) {
+        const it = ingredientsArray[i];
+        if (!it.name || it.name.toString().trim() === "") {
+          return { ok: false, message: `Ingrédient ${i + 1} : nom manquant.` };
+        }
+        if (it.quantity == null || it.quantity === "") {
+          return { ok: false, message: `Ingrédient ${i + 1} : quantité manquante.` };
+        }
+        if (!it.unit || it.unit.toString().trim() === "") {
+          return { ok: false, message: `Ingrédient ${i + 1} : unité manquante.` };
+        }
+      }
+      return { ok: true };
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            if (ingredientsList.length === 0 || ingredientsList.some(item => !item.name || !item.quantity || !item.unit)) {
-                alert("Vous devez ajouter au moins un ingrédient.");
+            // reset previous error
+            setErrorMessage("");
+
+            // suppose `ingredients` est un tableau d'objets { name, quantity, unit }
+            const check = validateIngredients(ingredientsList);
+            if (!check.ok) {
+                // afficher erreur via state (et éviter référence à setErrorMessage non définie)
+                setErrorMessage(check.message);
                 return;
             }
 
@@ -172,10 +202,12 @@ const AdminCocktailForm = () => {
                                             overflow: "hidden",
                                             margin: "0 auto 15px",
                                         }}
+                                        role="img"
+                                        aria-label={form.name ? `${form.name} preview` : "Aperçu du cocktail"}
                                     >
                                         <img
                                             src={previewUrl || "/cocktail-placeholder.png"}
-                                            alt="Cocktail"
+                                            alt={form.name || "Aperçu du cocktail"}
                                             style={{
                                                 position: "absolute",
                                                 top: "50%",
@@ -208,6 +240,14 @@ const AdminCocktailForm = () => {
                     <div className="col-md-7">
                         <div className="card p-4 filling-card">
                             <h4 className="mb-4">{id ? "Modifier" : "Ajouter"} un Cocktail</h4>
+
+                            {/* Affiche l'erreur si présente */}
+                            {errorMessage && (
+                                <div className="alert alert-danger" role="alert">
+                                    {errorMessage}
+                                </div>
+                            )}
+
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-3">
                                     <label className="form-label">Nom</label>
@@ -311,13 +351,13 @@ const AdminCocktailForm = () => {
                                 <div className="mb-4">
                                     <label className="form-label">Image</label>
                                     <input type="file" className="form-control" accept="image/*" name="image"
-                                           onChange={handleFileChange} {...(!id && {required: true})} />
+                                           onChange={handleFileChange} aria-label="Téléverser l'image principale" {...(!id && {required: true})} />
                                 </div>
 
                                 <div className="mb-4">
                                     <label className="form-label">Miniature</label>
                                     <input type="file" className="form-control" accept="image/*" name="thumbnail"
-                                           onChange={handleThumbnailChange} {...(!id && {required: true})} />
+                                           onChange={handleThumbnailChange} aria-label="Téléverser la miniature" {...(!id && {required: true})} />
                                 </div>
 
                                 <button type="submit" className="btn btn-success d-block mx-auto px-5">

@@ -32,6 +32,10 @@ body {
     min-height: 60vh;
     position: relative;
     border-radius: 50px 0 0 50px;
+
+    /* autorise background blur-up */
+    background-position: center;
+    background-size: cover;
 }
 
 .cocktail-infos {
@@ -90,11 +94,14 @@ body {
     width: 200px;
     min-width: 200px;
     height: 200px;
-    object-fit: contain;
     cursor: pointer;
     border: 2px solid transparent;
     border-radius: 20px;
     transition: 0.3s;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    display: inline-block;
 }
 
 @media (min-width: 767px) {
@@ -173,4 +180,69 @@ body {
 
 .cocktail-infos.animate-out {
     animation: slideOutLeft 1s ease forwards;
+}
+
+/* High contrast helpers for accessible buttons/text */
+.high-contrast-btn {
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+.high-contrast-btn:focus {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Ensure any text placed over unknown backgrounds is readable */
+.high-contrast-text {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  font-weight: 600;
+}
+
+/* focus visible for keyboard users */
+:focus-visible {
+  outline: 3px solid #ffd54f;
+  outline-offset: 2px;
+}
+
+.pagination-container {
+  padding: 12px 24px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+}
+@media (max-width: 767px) {
+  .pagination-container { flex-direction: column; align-items: stretch; gap: 8px; }
+}
+
+/* pagination numeric buttons */
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: #ddd;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.page-btn.active {
+  background: #1ED760;
+  color: #000;
+  border-color: #1ED760;
+  font-weight: 700;
+}
+.page-ellipsis {
+  color: #bbb;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* small responsive tweaks */
+@media (max-width: 600px) {
+  .page-btn { min-width: 28px; height: 28px; font-size: 0.85rem; }
+  .pagination-container { gap: 6px; padding: 10px; }
 }

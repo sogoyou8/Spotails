@@ -8,6 +8,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const sharp = require("sharp"); // <-- add
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -34,10 +35,66 @@ const deleteImage = (filename) => {
     }
 };
 
+// helper: generate webp variants for a file (keeps original name in DB)
+async function generateWebpVariants(inputPath, outputDir, baseFilename, sizes = [800, 400, 200]) {
+    // base without extension
+    const nameNoExt = baseFilename.replace(/\.[^/.]+$/, "");
+    // full-size webp (no resize)
+    await sharp(inputPath).toFormat("webp", { quality: 82 }).toFile(path.join(outputDir, `${nameNoExt}.webp`));
+    // sized variants
+    await Promise.all(
+        sizes.map((w) =>
+            sharp(inputPath)
+                .resize({ width: w, withoutEnlargement: true })
+                .toFormat("webp", { quality: 80 })
+                .toFile(path.join(outputDir, `${nameNoExt}_${w}.webp`))
+        )
+    );
+}
+
 router.get("/", async (req, res) => {
     try {
-        const cocktails = await Cocktail.find({ publish: true });
-        res.json(cocktails);
+        // Query params: q (text search), ingredient, theme, page, limit
+        const { q, ingredient, theme } = req.query;
+        const page = Math.max(1, parseInt(req.query.page || "1", 10));
+        const limit = Math.max(1, parseInt(req.query.limit || "50", 10));
+        const skip = (page - 1) * limit;
+
+        let filter = { publish: true };
+
+        if (theme) {
+            filter.theme = { $regex: theme, $options: "i" };
+        }
+
+        if (q) {
+            const regex = { $regex: q, $options: "i" };
+            filter.$or = [
+                { name: regex },
+                { description: regex },
+                { theme: regex }
+            ];
+        }
+
+        if (ingredient) {
+            // find ingredients matching and limit cocktails to those ids
+            const ingRegex = new RegExp(ingredient, "i");
+            const matchedIngredients = await Ingredient.find({ name: ingRegex });
+            const cocktailIds = matchedIngredients.map(i => i.cocktail).filter(Boolean);
+            if (cocktailIds.length === 0) {
+                return res.json({ data: [], page, totalPages: 0, total: 0 });
+            }
+            filter._id = { $in: cocktailIds };
+        }
+
+        const total = await Cocktail.countDocuments(filter);
+        const cocktails = await Cocktail.find(filter).skip(skip).limit(limit);
+
+        res.json({
+            data: cocktails,
+            page,
+            totalPages: Math.ceil(total / limit),
+            total
+        });
     } catch (err) {
         res.status(500).json({ message: "Erreur lors de la récupération des cocktails.", error: err.message });
     }
@@ -88,10 +145,18 @@ router.post("/", verifyAdmin, multipleUpload, async (req, res) => {
             return res.status(400).json({ message: 'Format ingrédients invalide.', error: e.message });
         }
 
+        const imageFilename = req.files["image"][0].filename;
+        const thumbFilename = req.files["thumbnail"][0].filename;
+
+        // generate webp variants (keeps originals)
+        const uploadsDir = path.join(__dirname, "../uploads");
+        await generateWebpVariants(path.join(uploadsDir, imageFilename), uploadsDir, imageFilename, [1200, 800, 400]);
+        await generateWebpVariants(path.join(uploadsDir, thumbFilename), uploadsDir, thumbFilename, [400, 200, 100]);
+
         const newCocktail = new Cocktail({
             name,
-            image: req.files["image"][0].filename,
-            thumbnail: req.files["thumbnail"][0].filename,
+            image: imageFilename,
+            thumbnail: thumbFilename,
             recipe,
             theme,
             description,
@@ -146,10 +211,14 @@ router.put("/:id", verifyAdmin, multipleUpload, async (req, res) => {
         if (req.files?.image?.[0]) {
             if (cocktail.image) deleteImage(cocktail.image);
             updateData.image = req.files.image[0].filename;
+            const uploadsDir = path.join(__dirname, "../uploads");
+            await generateWebpVariants(path.join(uploadsDir, updateData.image), uploadsDir, updateData.image, [1200, 800, 400]);
         }
         if (req.files?.thumbnail?.[0]) {
             if (cocktail.thumbnail) deleteImage(cocktail.thumbnail);
             updateData.thumbnail = req.files.thumbnail[0].filename;
+            const uploadsDir = path.join(__dirname, "../uploads");
+            await generateWebpVariants(path.join(uploadsDir, updateData.thumbnail), uploadsDir, updateData.thumbnail, [400, 200, 100]);
         }
         cocktail.set(updateData);
         await Ingredient.deleteMany({ cocktail: cocktail._id });

@@ -22,7 +22,17 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/favorites", require("./routes/favorites"));
 app.use("/api/users", require("./routes/users"));
 
-app.use('/uploads', express.static('uploads'));
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    maxAge: "30d",
+    setHeaders: (res, filePath) => {
+      res.setHeader("Cache-Control", "public, max-age=2592000"); // 30 days in seconds
+    },
+  })
+);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+module.exports = app;
