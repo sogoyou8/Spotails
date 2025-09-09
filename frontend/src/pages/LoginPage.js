@@ -1,82 +1,127 @@
 import React, { useState } from "react";
-import axios from "axios";
-import {Link, useNavigate} from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import axios from "../axiosConfig"; // ← Important : utilise axiosConfig
+import { processError } from '../utils/errorUtils';
+import "../styles/FormPage.css";
 
-const LoginForm = () => {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+const LoginPage = () => {
+    const [formData, setFormData] = useState({
+        username: "",
+        password: ""
+    });
     const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-    const [showPassword, setShowPassword] = useState(false);
+
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+        // Clear error when user starts typing
+        if (error) setError("");
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
+        setError("");
 
         try {
-            const response = await axios.post("http://localhost:5000/api/auth/login", {
-                email,
-                password,
+            console.log("Envoi des données:", formData); // Debug
+            
+            const response = await axios.post("/auth/login", {
+                username: formData.username,
+                password: formData.password
             });
+
+            console.log("Réponse reçue:", response.data); // Debug
+            
+            // Sauvegarder les données utilisateur
             localStorage.setItem("token", response.data.token);
             localStorage.setItem("username", response.data.username);
-
+            
+            // Rediriger vers la page d'accueil
             navigate("/");
-        } catch (err) {
-            setError("E-mail ou mot de passe incorrect");
+            
+        } catch (error) {
+            console.error("Erreur de connexion:", error);
+            if (error.response?.data?.message) {
+                setError(error.response.data.message);
+            } else {
+                setError("Erreur de connexion. Vérifiez vos identifiants.");
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <div className="auth-form mt-5 p-5">
-            <div className="container">
-                <h1 className="text-center mb-4">Connexion</h1>
-                <form onSubmit={handleSubmit} className="w-50 mx-auto">
-                    {error && <div className="alert alert-danger">{error}</div>}
-                    <div className="mb-3">
-                        <label htmlFor="email" className="mb-1">E-mail</label>
-                        <input
-                            type="email"
-                            className="form-control"
-                            id="email"
-                            value={email}
-                            placeholder="email@exemple.fr"
-                            onChange={(e) => setEmail(e.target.value.toLowerCase())}
-                            required
-                        />
-                    </div>
-                    <div className="mb-3">
-                        <label htmlFor="password" className="mb-1">Mot de passe</label>
-                        <div className="input-group">
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                className="form-control"
-                                id="password"
-                                value={password}
-                                placeholder="****************"
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                            />
-                            <button
-                                type="button"
-                                className="btn display-pw-btn"
-                                onClick={() => setShowPassword(!showPassword)}
+        <div className="form-page">
+            <div className="container d-flex justify-content-center align-items-center min-vh-100">
+                <div className="col-md-4">
+                    <div className="auth-form p-5">
+                        <h2 className="text-center mb-4">Connexion</h2>
+                        
+                        {error && (
+                            <div className="alert alert-danger" role="alert">
+                                {error}
+                            </div>
+                        )}
+                        
+                        <form onSubmit={handleSubmit}>
+                            <div className="mb-3">
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="username"
+                                    placeholder="Nom d'utilisateur ou email"
+                                    value={formData.username}
+                                    onChange={handleChange}
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            
+                            <div className="mb-4">
+                                <input
+                                    type="password"
+                                    className="form-control"
+                                    name="password"
+                                    placeholder="Mot de passe"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary w-100"
+                                disabled={isLoading}
                             >
-                                {showPassword ? <i className="bi bi-eye-fill me-1"></i> :
-                                    <i className="bi bi-eye-slash-fill me-1"></i>}
+                                {isLoading ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Connexion...
+                                    </>
+                                ) : (
+                                    "Se connecter"
+                                )}
                             </button>
+                        </form>
+                        
+                        <div className="text-center mt-3">
+                            <p className="mb-0">
+                                Pas encore de compte ? <Link to="/register">Inscrivez-vous ici</Link>
+                            </p>
                         </div>
                     </div>
-                    <button type="submit" className="btn submit-btn w-100">Se connecter</button>
-
-                    <div className="text-center mt-3">
-                        <small>
-                            Pas encore de compte ? <Link to="/register">Inscrivez-vous ici</Link>
-                        </small>
-                    </div>
-                </form>
+                </div>
             </div>
         </div>
     );
 };
 
-export default LoginForm;
+export default LoginPage;

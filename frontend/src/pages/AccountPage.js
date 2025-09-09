@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../axiosConfig";
+import { processError } from '../utils/errorUtils';
 import { useNavigate } from "react-router-dom";
 import "../styles/AccountPage.css";
 
@@ -11,6 +12,7 @@ const AccountPage = () => {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+    const [spotifyConnected, setSpotifyConnected] = useState(false);
     const navigate = useNavigate();
 
     const fetchUserData = async () => {
@@ -23,14 +25,23 @@ const AccountPage = () => {
             setUserInfo(response.data);
             setNewUsername(response.data.username);
             setNewEmail(response.data.email);
+            setSpotifyConnected(!!response.data.spotifyId);
         } catch (err) {
             setError("Impossible de récupérer les informations de l'utilisateur.");
         }
     };
 
     useEffect(() => {
-
         fetchUserData();
+
+        // Vérifier les paramètres URL pour Spotify
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('spotify_connected')) {
+            alert('Spotify connecté avec succès !');
+            setSpotifyConnected(true);
+        } else if (urlParams.get('spotify_error')) {
+            alert('Erreur lors de la connexion Spotify');
+        }
     }, []);
 
     const handleChangeUsername = async () => {
@@ -145,6 +156,31 @@ const AccountPage = () => {
         } catch (err) {
             setError("Erreur lors de la mise à jour du mot de passe. " + err.response?.data?.message || err.message);
             setSuccessMessage("");
+        }
+    };
+
+    const connectSpotify = async () => {
+        try {
+            const res = await axios.get("/spotify/auth", {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            });
+            window.location.href = res.data.authURL;
+        } catch (error) {
+            processError(error);
+        }
+    };
+
+    const disconnectSpotify = async () => {
+        if (window.confirm("Déconnecter votre compte Spotify ?")) {
+            try {
+                await axios.delete("/spotify/disconnect", {
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                });
+                setSpotifyConnected(false);
+                alert("Spotify déconnecté");
+            } catch (error) {
+                processError(error);
+            }
         }
     };
 
@@ -276,6 +312,38 @@ const AccountPage = () => {
                                     onClick={handleChangePassword}
                                 >
                                     Sauvegarder
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Section Spotify */}
+                <div className="card mt-4">
+                    <div className="card-header d-flex align-items-center">
+                        <i className="bi bi-spotify me-2 text-success"></i>
+                        <h5 className="mb-0">Connexion Spotify</h5>
+                    </div>
+                    <div className="card-body">
+                        {spotifyConnected ? (
+                            <div className="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <i className="bi bi-check-circle text-success me-2"></i>
+                                    Votre compte Spotify est connecté
+                                </div>
+                                <button onClick={disconnectSpotify} className="btn btn-outline-danger btn-sm">
+                                    Déconnecter
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <i className="bi bi-x-circle text-muted me-2"></i>
+                                    Connectez votre compte pour créer des playlists automatiquement
+                                </div>
+                                <button onClick={connectSpotify} className="btn btn-success btn-sm">
+                                    <i className="bi bi-spotify me-1"></i>
+                                    Connecter Spotify
                                 </button>
                             </div>
                         )}

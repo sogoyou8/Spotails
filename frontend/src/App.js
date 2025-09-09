@@ -6,6 +6,7 @@ import PublicRoute from "./components/PublicRoute";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import NotFoundPage from "./pages/NotFoundPage";
+import FeedbackWidget from './components/FeedbackWidget';
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const CocktailList = lazy(() => import("./pages/CocktailList"));
@@ -90,6 +91,7 @@ function App() {
                     </Suspense>
                 </div>
                 <Footer />
+                <FeedbackWidget />
             </div>
         </Router>
     );

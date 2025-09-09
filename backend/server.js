@@ -21,16 +21,9 @@ app.use("/api/cocktails", require("./routes/cocktails"));
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/favorites", require("./routes/favorites"));
 app.use("/api/users", require("./routes/users"));
+app.use("/api/spotify", require("./routes/spotify"));
 
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"), {
-    maxAge: "30d",
-    setHeaders: (res, filePath) => {
-      res.setHeader("Cache-Control", "public, max-age=2592000"); // 30 days in seconds
-    },
-  })
-);
+app.use('/uploads', express.static('uploads'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

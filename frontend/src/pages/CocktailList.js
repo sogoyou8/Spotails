@@ -182,20 +182,48 @@ const CocktailList = () => {
     }, [showFavoritesOnly, favoritesList, cocktails]);
 
     // derive visible list depending on mode (fix: visibleCocktails was missing)
-    const visibleCocktails = showFavoritesOnly ? favoritesList : cocktails;
-    
+    const visibleCocktails = useMemo(() => {
+        let list = showFavoritesOnly ? favoritesList : cocktails;
+        
+        // ✅ Appliquer la recherche même en mode favoris
+        if (debouncedQuery && debouncedQuery.trim()) {
+            const searchTerm = debouncedQuery.toLowerCase();
+            list = list.filter(cocktail => 
+                cocktail.name.toLowerCase().includes(searchTerm) ||
+                cocktail.theme.toLowerCase().includes(searchTerm) ||
+                cocktail.description.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        return list;
+    }, [showFavoritesOnly, favoritesList, cocktails, debouncedQuery]);
+
     const handleFavoriteToggle = async () => {
         const token = localStorage.getItem("token");
         if (!token) return alert("Connecte-toi pour ajouter aux favoris");
+        
+        const isFav = favoriteIds.includes(selectedCocktail._id);
+        
         try {
-            if (favoriteIds.includes(selectedCocktail._id)) {
-                await axios.delete(`${API_BASE}/api/favorites/remove/${selectedCocktail._id}`, { headers: { Authorization: `Bearer ${token}` } });
-                setFavoriteIds(favoriteIds.filter(id => id !== selectedCocktail._id));
+            if (isFav) {
+                await axios.delete(`${API_BASE}/api/favorites/remove/${selectedCocktail._id}`, { 
+                    headers: { Authorization: `Bearer ${token}` } 
+                });
+                // ✅ Actualisation immédiate
+                setFavoriteIds(prev => prev.filter(id => id !== selectedCocktail._id));
+                setFavoritesList(prev => prev.filter(c => c._id !== selectedCocktail._id));
             } else {
-                await axios.post(`${API_BASE}/api/favorites/add/${selectedCocktail._id}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-                setFavoriteIds([...favoriteIds, selectedCocktail._id]);
+                await axios.post(`${API_BASE}/api/favorites/add/${selectedCocktail._id}`, {}, { 
+                    headers: { Authorization: `Bearer ${token}` } 
+                });
+                // ✅ Actualisation immédiate
+                setFavoriteIds(prev => [...prev, selectedCocktail._id]);
+                setFavoritesList(prev => [...prev, selectedCocktail]);
             }
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            console.error("Erreur favoris:", err);
+            alert("Erreur lors de la modification des favoris");
+        }
     };
 
     const handleSelect = (cocktail) => {

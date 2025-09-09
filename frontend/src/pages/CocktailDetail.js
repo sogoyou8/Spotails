@@ -6,6 +6,8 @@ import NotFoundPage from "./NotFoundPage";
 import "../styles/CocktailDetail.css";
 import {formatRecipeText} from "../utils/textUtils";
 import { useQuery } from "@tanstack/react-query";
+import SpotifyPlayerAdvanced from "../components/SpotifyPlayerAdvanced";
+import { analytics } from '../utils/analytics';
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const placeholder = `${process.env.PUBLIC_URL || ""}/thumbnail-placeholder.jpg`;
@@ -50,7 +52,11 @@ const CocktailDetail = () => {
     });
 
     useEffect(() => {
-        if (cocktailData) setCocktail(cocktailData);
+        if (cocktailData) {
+            setCocktail(cocktailData);
+            // ✅ Track vue cocktail
+            analytics.trackCocktailView(cocktailData._id, cocktailData.name);
+        }
     }, [cocktailData]);
 
     useEffect(() => {
@@ -72,14 +78,23 @@ const CocktailDetail = () => {
             if (isFavorite) {
                 await axios.delete(`${API_BASE}/api/favorites/remove/${id}`, { headers: { Authorization: `Bearer ${token}` } });
                 setIsFavorite(false);
+                // ✅ Track action favoris
+                analytics.trackFavoriteToggle(id, 'remove');
             } else {
                 await axios.post(`${API_BASE}/api/favorites/add/${id}`, {}, { headers: { Authorization: `Bearer ${token}` } });
                 setIsFavorite(true);
+                // ✅ Track action favoris
+                analytics.trackFavoriteToggle(id, 'add');
             }
         } catch {}
     };
 
-    const handleImgError = (e) => { e.currentTarget.onerror = null; e.currentTarget.src = placeholder; };
+    const handleImgError = (e) => { 
+        e.currentTarget.onerror = null; 
+        e.currentTarget.src = placeholder; 
+        e.currentTarget.alt = `Image de ${cocktail.name} indisponible`; // ← Plus spécifique
+        e.currentTarget.style.opacity = "0.7"; // ← Indicateur visuel
+    };
 
     if (isError) return <NotFoundPage />;
     if (!cocktail) return <div>Chargement...</div>;
@@ -92,7 +107,7 @@ const CocktailDetail = () => {
                         <i className="bi bi-exclamation-triangle-fill"></i> Ce cocktail n'est pas publié. Il est accessible seulement aux admins.
                     </div>
                 )}
-                <div className="px-5 pb-5 d-flex flex-column" style={{
+                <div className="px-5 pb-5 d-flex flex-column align-items-center justify-content-center" style={{
                     backgroundColor: cocktail.color,
                     borderRadius: "40px 40px 0 0"
                 }}>
@@ -193,6 +208,8 @@ const CocktailDetail = () => {
                             />
                         </div>
                     </div>
+                    {/* Ajouter le lecteur Spotify */}
+                    <SpotifyPlayerAdvanced cocktail={cocktail} />
                 </div>
             </div>
         </div>

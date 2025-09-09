@@ -1,72 +1,119 @@
-const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
-};
+const User = require("../models/User");
 
 exports.registerUser = async (req, res) => {
-    const { username, email, password } = req.body;
+    try {
+        const { username, email, password } = req.body;
 
-    const usernameRegex = /^[a-zA-Z0-9]+$/;
-    if (!usernameRegex.test(username) || username.length > 16 || username.length < 3) {
-        return res.status(400).json({ message: "Le nom d'utilisateur doit être alphanumérique et contenir entre 3 et 16 caractères." });
-    }
-    const usernameExists = await User.findOne({
-        username: { $regex: new RegExp("^" + username + "$", "i") }
-    });
-    if (usernameExists) {
-        return res.status(400).json({ message: "Nom d'utilisateur déjà pris." });
-    }
+        // Validation des données
+        if (!username || !email || !password) {
+            return res.status(400).json({ message: "Tous les champs sont requis." });
+        }
 
-    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-    if (!emailRegex.test(email)) {
-        return res.status(400).json({ message: "L'adresse email n'est pas valide." });
-    }
-    const emailExists = await User.findOne({ email: email.toLowerCase() });
-    if (emailExists) {
-        return res.status(400).json({ message: "Email déjà utilisé." });
-    }
+        if (password.length < 8) {
+            return res.status(400).json({ message: "Le mot de passe doit contenir au moins 8 caractères." });
+        }
 
-    if (password.length < 8) {
-        return res.status(400).json({ message: "Le mot de passe doit contenir au moins 8 caractères." });
-    }
-
-    const user = await User.create({
-        username,
-        email: email.toLowerCase(),
-        password,
-    });
-
-    if (user) {
-        const token = generateToken(user._id, user.role);
-        res.status(201).json({
-            _id: user._id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            token,
+        // Vérifier si l'utilisateur existe déjà
+        const existingUser = await User.findOne({
+            $or: [
+                { username: username },
+                { email: email }
+            ]
         });
-    } else {
-        res.status(400).json({ message: "Erreur lors de l'inscription" });
+
+        if (existingUser) {
+            if (existingUser.username === username) {
+                return res.status(400).json({ message: "Nom d'utilisateur déjà pris." });
+            } else {
+                return res.status(400).json({ message: "Adresse e-mail déjà utilisée." });
+            }
+        }
+
+        // Hacher le mot de passe
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Créer l'utilisateur
+        const newUser = new User({
+            username,
+            email,
+            password: hashedPassword,
+            role: "user"
+        });
+
+        await newUser.save();
+
+        // Générer le token JWT
+        const token = jwt.sign(
+            { id: newUser._id, role: newUser.role },
+            process.env.JWT_SECRET,
+            { expiresIn: "30d" }
+        );
+
+        res.status(201).json({
+            _id: newUser._id,
+            username: newUser.username,
+            email: newUser.email,
+            role: newUser.role,
+            token
+        });
+    } catch (error) {
+        console.error("Erreur register:", error);
+        res.status(500).json({ message: "Erreur serveur lors de l'inscription." });
     }
 };
 
 exports.loginUser = async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { username, password } = req.body;
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+        // Validation des données d'entrée
+        if (!username || !password) {
+            return res.status(400).json({ message: "Nom d'utilisateur et mot de passe requis." });
+        }
 
-    if (user && (await user.matchPassword(password))) {
-        const token = generateToken(user._id, user.role);
+        // Convertir en lowercase de manière sécurisée
+        const usernameNormalized = typeof username === 'string' ? username.toLowerCase() : '';
+        
+        if (!usernameNormalized) {
+            return res.status(400).json({ message: "Nom d'utilisateur invalide." });
+        }
+
+        // Chercher l'utilisateur (insensible à la casse)
+        const user = await User.findOne({
+            $or: [
+                { username: { $regex: new RegExp(`^${usernameNormalized}$`, 'i') } },
+                { email: { $regex: new RegExp(`^${usernameNormalized}$`, 'i') } }
+            ]
+        });
+
+        if (!user) {
+            return res.status(401).json({ message: "Utilisateur introuvable." });
+        }
+
+        // Vérifier le mot de passe
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: "Mot de passe incorrect." });
+        }
+
+        // Générer le token JWT
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: "30d" }
+        );
+
         res.json({
             _id: user._id,
             username: user.username,
             email: user.email,
             role: user.role,
-            token,
+            token
         });
-    } else {
-        res.status(401).json({ message: "Email ou mot de passe incorrect" });
+    } catch (error) {
+        console.error("Erreur login:", error);
+        res.status(500).json({ message: "Erreur serveur lors de la connexion." });
     }
 };

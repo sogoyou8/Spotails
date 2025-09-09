@@ -1,57 +1,72 @@
 const express = require("express");
 const router = express.Router();
+const verifyToken = require("../middleware/verifyToken");
 const User = require("../models/User");
-const jwt = require("jsonwebtoken");
+const Cocktail = require("../models/Cocktail");
 
-const authMiddleware = (req, res, next) => {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "Pas de token" });
-
+// Ajouter aux favoris
+router.post("/add/:cocktailId", verifyToken, async (req, res) => {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.id;
-        next();
-    } catch (err) {
-        res.status(401).json({ message: "Token invalide" });
+        const { cocktailId } = req.params;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user.favorites) user.favorites = [];
+        
+        if (!user.favorites.includes(cocktailId)) {
+            user.favorites.push(cocktailId);
+            await user.save();
+        }
+
+        res.json({ message: "Ajouté aux favoris" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur" });
     }
-};
+});
 
-router.post("/add/:cocktailId", authMiddleware, async (req, res) => {
-    const { cocktailId } = req.params;
-    const user = await User.findById(req.userId);
+// Retirer des favoris
+router.delete("/remove/:cocktailId", verifyToken, async (req, res) => {
+    try {
+        const { cocktailId } = req.params;
+        const userId = req.user.id;
 
-    if (!user.favorites.includes(cocktailId)) {
-        user.favorites.push(cocktailId);
-        await user.save();
+        const user = await User.findById(userId);
+        if (user.favorites) {
+            user.favorites = user.favorites.filter(id => id.toString() !== cocktailId);
+            await user.save();
+        }
+
+        res.json({ message: "Retiré des favoris" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur" });
     }
-
-    res.json({ message: "Ajouté aux favoris" });
 });
 
-router.delete("/remove/:cocktailId", authMiddleware, async (req, res) => {
-    const { cocktailId } = req.params;
-    const user = await User.findById(req.userId);
+// Vérifier si favori
+router.get("/check/:cocktailId", verifyToken, async (req, res) => {
+    try {
+        const { cocktailId } = req.params;
+        const userId = req.user.id;
 
-    user.favorites = user.favorites.filter(
-        (fav) => fav.toString() !== cocktailId
-    );
-    await user.save();
+        const user = await User.findById(userId);
+        const isFavorite = user.favorites && user.favorites.includes(cocktailId);
 
-    res.json({ message: "Retiré des favoris" });
+        res.json({ isFavorite });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur" });
+    }
 });
 
-router.get("/check/:cocktailId", authMiddleware, async (req, res) => {
-    const { cocktailId } = req.params;
-    const user = await User.findById(req.userId);
-
-    const isFav = user.favorites.includes(cocktailId);
-    res.json({ isFavorite: isFav });
+// Obtenir tous les favoris
+router.get("/", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findById(userId).populate("favorites");
+        
+        res.json(user.favorites || []);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur" });
+    }
 });
-
-router.get("/", authMiddleware, async (req, res) => {
-    const user = await User.findById(req.userId).populate("favorites");
-    res.json(user.favorites);
-});
-
 
 module.exports = router;
