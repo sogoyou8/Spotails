@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 const verifyToken = require("../middleware/verifyToken");
 const User = require("../models/User");
+const FavoriteTrack = require("../models/FavoriteTrack");
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
@@ -103,34 +104,181 @@ router.get("/callback", async (req, res) => {
     }
 });
 
-// Rechercher des tracks par thème de cocktail
-router.get("/search/:theme", async (req, res) => {
-    try {
-        const { theme } = req.params;
-        const { limit = 10 } = req.query;
-        
-        const accessToken = await getServerAccessToken();
-        
-        // Recherche basée sur le thème
-        const searchQuery = `genre:${theme} OR mood:${theme} OR ${theme}`;
-        
-        const response = await axios.get("https://api.spotify.com/v1/search", {
-            headers: {
-                "Authorization": `Bearer ${accessToken}`
-            },
-            params: {
-                q: searchQuery,
-                type: "track",
-                limit: limit,
-                market: "FR"
-            }
-        });
+// Rechercher des tracks par thème
+const removeDiacritics = (str="") =>
+  str.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 
-        res.json(response.data.tracks);
-    } catch (error) {
-        console.error("Erreur recherche Spotify:", error.response?.data);
-        res.status(500).json({ message: "Erreur lors de la recherche Spotify" });
+const themeAliasMap = {
+  "variete francaise": "french pop chanson",
+  "concu specialement pour vous": "chill mix",
+  "dernieres sorties": "new music friday",
+  "detente": "chill relax ambient",
+  "dormir": "sleep calm",
+  "ambiance": "lounge chill",
+  "hip-hop": "hip hop rap",
+  "hiphop": "hip hop rap",
+  "rock": "rock",
+  "jazz": "jazz",
+  "rap": "rap hip hop",
+  "disco": "disco funk dance",
+  "metal": "metal rock",
+  "pop": "pop",
+  "classique": "classical orchestra piano"
+};
+
+// --- Cache mémoire simple (reset on server restart)
+const themeCache = new Map(); // key: norm|limit => { items, ts }
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+
+function getCacheKey(norm, limit) {
+    return `${norm}|${limit}`;
+}
+
+function setThemeCache(norm, limit, items) {
+    themeCache.set(getCacheKey(norm, limit), { items, ts: Date.now() });
+}
+
+function getThemeCache(norm, limit) {
+    const entry = themeCache.get(getCacheKey(norm, limit));
+    if (!entry) return null;
+    if (Date.now() - entry.ts > CACHE_TTL_MS) {
+        themeCache.delete(getCacheKey(norm, limit));
+        return null;
     }
+    return entry.items;
+}
+
+// Mood/activité vs genre hints
+const moodAlias = {
+    sleep: "sleep calm",
+    dormir: "sleep calm ambient",
+    detente: "chill relax ambient",
+    détente: "chill relax ambient",
+    chill: "chill relax",
+    ambiance: "lounge chill",
+    focus: "focus concentration",
+    study: "focus study",
+    workout: "workout energy"
+};
+
+// COMPLETER themeAliasMap existant si besoin (garde l'existant plus haut)
+const extendedThemeAlias = {
+    "concu specialement pour vous": "chill mix discovery",
+    "conçu spécialement pour vous": "chill mix discovery",
+    "variete francaise": "french pop chanson",
+    "variété française": "french pop chanson",
+    "dernieres sorties": "new music friday",
+    "dernières sorties": "new music friday",
+    ...moodAlias
+};
+
+router.get("/search/:theme", async (req, res) => {
+  const started = Date.now();
+  let raw = req.params.theme || "";
+  const limit = Math.min(50, parseInt(req.query.limit || "30", 10));
+  const norm = removeDiacritics(raw.trim());
+  try {
+    // Cache check
+    const cached = getThemeCache(norm, limit);
+    if (cached) {
+        return res.json({ items: cached.slice(0, limit), cached: true, theme: raw, tookMs: Date.now()-started });
+    }
+
+    const accessToken = await getServerAccessToken();
+    const alias = extendedThemeAlias[norm] || themeAliasMap?.[norm] || norm;
+
+    const collected = new Map();
+
+    // 1. Track queries
+    const queries = [
+      `"${alias}"`,
+      `${alias} music`,
+      `${alias} playlist`,
+      alias.split(" ").slice(0,2).join(" ")
+    ].filter((q,i,a)=>q && a.indexOf(q)===i);
+
+    for (const q of queries) {
+      if (collected.size >= limit) break;
+      try {
+        const r = await axios.get("https://api.spotify.com/v1/search", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { q, type:"track", limit: Math.min(8, limit - collected.size), market:"FR" }
+        });
+        (r.data?.tracks?.items||[]).forEach(t => {
+          if (t?.id && !collected.has(t.id)) collected.set(t.id, t);
+        });
+      } catch (err) {
+        // continue
+      }
+    }
+
+    // 2. Playlist fallback (si peu de résultats ET alias pas purement un genre simple)
+    if (collected.size < Math.min(10, limit)) {
+      try {
+        const playlistSearchQ = alias.split(" ").slice(0,3).join(" ");
+        const pr = await axios.get("https://api.spotify.com/v1/search", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { q: playlistSearchQ, type:"playlist", limit: 3, market:"FR" }
+        });
+        const playlists = pr.data?.playlists?.items || [];
+        if (playlists.length) {
+            // Récupérer pistes de la première playlist (max 50)
+            const plId = playlists[0].id;
+            const tr = await axios.get(`https://api.spotify.com/v1/playlists/${plId}/tracks`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              params: { limit: Math.min(50, limit - collected.size), market:"FR" }
+            });
+            (tr.data?.items || [])
+              .map(it => it.track)
+              .filter(Boolean)
+              .forEach(t => {
+                if (t?.id && !collected.has(t.id)) collected.set(t.id, t);
+              });
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    // 3. Recommendations fallback (seed genres)
+    if (collected.size < Math.min(8, limit)) {
+      try {
+        const seedsResp = await axios.get("https://api.spotify.com/v1/recommendations/available-genre-seeds", {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const seeds = seedsResp.data.genres || [];
+        const chosenSeeds = [];
+        for (const s of seeds) {
+          if (alias.includes(s) || norm.includes(s)) chosenSeeds.push(s);
+          if (chosenSeeds.length === 2) break;
+        }
+        if (chosenSeeds.length === 0) chosenSeeds.push("pop");
+        const rec = await axios.get("https://api.spotify.com/v1/recommendations", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { seed_genres: chosenSeeds.slice(0,5).join(","), limit: Math.min(20, limit - collected.size), market:"FR" }
+        });
+        (rec.data?.tracks || []).forEach(t => {
+          if (t?.id && !collected.has(t.id)) collected.set(t.id, t);
+        });
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    const items = Array.from(collected.values()).slice(0, limit);
+    setThemeCache(norm, limit, items);
+
+    res.json({
+      theme: raw,
+      aliasUsed: alias,
+      total: items.length,
+      items,
+      tookMs: Date.now() - started
+    });
+  } catch (e) {
+    console.error("search route fatal:", e.response?.data || e.message);
+    res.status(500).json({ message: "Erreur recherche Spotify", details: e.response?.data || e.message });
+  }
 });
 
 // Obtenir des recommandations pour un cocktail
@@ -409,6 +557,194 @@ router.post("/playlist/:cocktailId", verifyToken, async (req, res) => {
     }
 });
 
+// Ajouter un morceau aux favoris
+router.post("/favorite-tracks", verifyToken, async (req, res) => {
+    try {
+        const { trackId, trackName, artistName, previewUrl, spotifyUrl, albumImage, cocktailId } = req.body;
+        
+        const favoriteTrack = new FavoriteTrack({
+            userId: req.user.id,
+            trackId,
+            trackName,
+            artistName,
+            previewUrl,
+            spotifyUrl,
+            albumImage,
+            cocktailId
+        });
+        
+        await favoriteTrack.save();
+        res.json({ message: "Morceau ajouté aux favoris", track: favoriteTrack });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ message: "Morceau déjà dans les favoris" });
+        }
+        console.error("Erreur ajout favori track:", error);
+        res.status(500).json({ message: "Erreur serveur" });
+    }
+});
+
+// Retirer un morceau des favoris
+router.delete("/favorite-tracks/:trackId", verifyToken, async (req, res) => {
+    try {
+        await FavoriteTrack.findOneAndDelete({
+            userId: req.user.id,
+            trackId: req.params.trackId
+        });
+        res.json({ message: "Morceau retiré des favoris" });
+    } catch (error) {
+        console.error("Erreur suppression favori track:", error);
+        res.status(500).json({ message: "Erreur serveur" });
+    }
+});
+
+// Obtenir tous les morceaux favoris
+router.get("/favorite-tracks", verifyToken, async (req, res) => {
+    try {
+        const favoriteTracks = await FavoriteTrack.find({ userId: req.user.id })
+            .populate('cocktailId', 'name theme color')
+            .sort({ createdAt: -1 });
+        res.json(favoriteTracks);
+    } catch (error) {
+        console.error("Erreur récupération favoris tracks:", error);
+        res.status(500).json({ message: "Erreur serveur" });
+    }
+});
+
+// Recherche de morceaux Spotify
+router.get("/search-tracks", async (req, res) => {
+    try {
+        const { q, limit = 20 } = req.query;
+        
+        if (!q) {
+            return res.status(400).json({ message: "Paramètre de recherche requis" });
+        }
+        
+        const accessToken = await getServerAccessToken();
+        
+        const response = await axios.get("https://api.spotify.com/v1/search", {
+            headers: {
+                "Authorization": `Bearer ${accessToken}`
+            },
+            params: {
+                q: q,
+                type: "track",
+                limit: limit,
+                market: "FR"
+            }
+        });
+
+        res.json(response.data);
+    } catch (error) {
+        console.error("Erreur recherche tracks Spotify:", error.response?.data);
+        res.status(500).json({ message: "Erreur lors de la recherche Spotify" });
+    }
+});
+
+/**
+ * Helper de refresh (si pas déjà défini proprement plus haut)
+ */
+async function refreshUserAccessToken(user) {
+    if (!user.spotifyRefreshToken) {
+        throw new Error("Aucun refresh token Spotify.");
+    }
+    try {
+        const resp = await axios.post(
+            "https://accounts.spotify.com/api/token",
+            new URLSearchParams({
+                grant_type: "refresh_token",
+                refresh_token: user.spotifyRefreshToken,
+                client_id: SPOTIFY_CLIENT_ID,
+                client_secret: SPOTIFY_CLIENT_SECRET
+            }).toString(),
+            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+        );
+        user.spotifyAccessToken = resp.data.access_token;
+        if (resp.data.refresh_token) {
+            user.spotifyRefreshToken = resp.data.refresh_token;
+        }
+        if (resp.data.expires_in) {
+            user.spotifyTokenExpiry = new Date(Date.now() + resp.data.expires_in * 1000);
+        }
+        await user.save();
+        return user.spotifyAccessToken;
+    } catch (err) {
+        console.error("Erreur refresh token Spotify:", err.response?.data || err.message);
+        throw new Error("Refresh token Spotify échoué");
+    }
+}
+
+/**
+ * Créer une playlist personnalisée depuis une liste d'URIs
+ * Body: { name, description?, tracks: [ 'spotify:track:xxx' | 'xxx' ] }
+ */
+router.post("/create-custom-playlist", verifyToken, async (req, res) => {
+    try {
+        const { name, description = "Playlist générée via Spotails", tracks = [] } = req.body;
+        if (!name || !Array.isArray(tracks) || tracks.length === 0) {
+            return res.status(400).json({ message: "Nom et liste de morceaux requis." });
+        }
+
+        let user = await User.findById(req.user.id);
+        if (!user) return res.status(401).json({ message: "Utilisateur introuvable." });
+        if (!user.spotifyAccessToken) {
+            return res.status(400).json({ message: "Compte Spotify non connecté." });
+        }
+
+        // Refresh si expiré (< 60s)
+        const now = Date.now();
+        const exp = user.spotifyTokenExpiry ? new Date(user.spotifyTokenExpiry).getTime() : 0;
+        if (!exp || exp < now + 60000) {
+            await refreshUserAccessToken(user);
+        }
+
+        const accessToken = user.spotifyAccessToken;
+
+        // Normaliser URIs
+        const uris = tracks
+            .map(t => t?.startsWith("spotify:track:") ? t : `spotify:track:${t}`)
+            .filter(Boolean);
+
+        // Créer playlist
+        const createResp = await axios.post(
+            "https://api.spotify.com/v1/me/playlists",
+            {
+                name: name.substring(0, 95),
+                description,
+                public: false
+            },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        const playlistId = createResp.data.id;
+        const externalUrl = createResp.data.external_urls?.spotify;
+
+        // Ajout par chunks de 100
+        const chunkSize = 100;
+        for (let i = 0; i < uris.length; i += chunkSize) {
+            const chunk = uris.slice(i, i + chunkSize);
+            await axios.post(
+                `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+                { uris: chunk },
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+        }
+
+        return res.json({
+            message: "Playlist créée",
+            playlistId,
+            external_url: externalUrl,
+            totalTracks: uris.length
+        });
+    } catch (error) {
+        console.error("Erreur create-custom-playlist:", error.response?.data || error.message);
+        return res.status(500).json({
+            message: "Erreur création playlist Spotify",
+            details: error.response?.data || error.message
+        });
+    }
+});
+
 // Déconnecter Spotify
 router.delete("/disconnect", verifyToken, async (req, res) => {
     try {
@@ -438,43 +774,7 @@ router.get("/debug/token", async (req, res) => {
   }
 });
 
-// --- NEW: refresh user access token helper
-const refreshUserAccessToken = async (user) => {
-    if (!user?.spotifyRefreshToken) throw new Error("No refresh token available");
-    try {
-        const basic = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString("base64");
-        const resp = await axios.post(
-            "https://accounts.spotify.com/api/token",
-            new URLSearchParams({
-                grant_type: "refresh_token",
-                refresh_token: user.spotifyRefreshToken
-            }).toString(),
-            {
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Authorization": `Basic ${basic}`
-                }
-            }
-        );
-
-        const { access_token, refresh_token, expires_in } = resp.data;
-
-        // if Spotify returned a new refresh_token, save it; else keep existing
-        const update = {
-            spotifyAccessToken: access_token,
-            spotifyTokenExpiry: new Date(Date.now() + (expires_in || 3600) * 1000)
-        };
-        if (refresh_token) update.spotifyRefreshToken = refresh_token;
-
-        await User.findByIdAndUpdate(user._id, update, { new: true });
-        return access_token;
-    } catch (err) {
-        console.error("Erreur refresh token utilisateur:", err.response?.status, err.response?.data || err.message);
-        throw err;
-    }
-};
-
-// --- NEW: endpoint to manually refresh (for testing)
+// Endpoint to manually refresh (for testing)
 router.post("/refresh", verifyToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);

@@ -22,6 +22,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/favorites", require("./routes/favorites"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/spotify", require("./routes/spotify"));
+app.use("/api/playlists", require("./routes/playlists"));
 
 app.use('/uploads', express.static('uploads'));
 
