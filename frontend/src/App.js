@@ -18,6 +18,8 @@ const AdminUserManager = lazy(() => import("./pages/AdminUserManager"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const FavoriteTracksPage = lazy(() => import("./pages/FavoriteTracksPage"));
+const ThemesPage = lazy(() => import("./pages/ThemesPage"));
 
 function App() {
     return (
@@ -48,6 +50,14 @@ function App() {
                                 element={
                                     <PrivateRoute>
                                         <AccountPage />
+                                    </PrivateRoute>
+                                }
+                            />
+                            <Route path="/themes" element={<ThemesPage />} />
+                            <Route path="/favorite-tracks" 
+                                element={
+                                    <PrivateRoute>
+                                        <FavoriteTracksPage />
                                     </PrivateRoute>
                                 }
                             />
