@@ -9,9 +9,9 @@ import useIntersection from "../hooks/useIntersection";
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const placeholder = `${process.env.PUBLIC_URL || ""}/thumbnail-placeholder.jpg`;
 const getUploadUrl = (filename) => {
-    if (!filename) return placeholder;
-    if (/^https?:\/\//i.test(filename)) return filename;
-    return `${API_BASE}/uploads/${filename}`;
+  if (!filename) return placeholder;
+  if (/^https?:\/\//i.test(filename)) return filename;
+  return `${API_BASE}/uploads/${filename}`;
 };
 
 // helper contraste simple
@@ -65,24 +65,24 @@ const ThumbnailItem = React.memo(function ThumbnailItem({ cock, selectedId, onSe
 
 const CocktailList = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const initialQ = searchParams.get("q") || "";
-    const initialPage = parseInt(searchParams.get("page") || "1", 10);
-    const initialLimit = parseInt(searchParams.get("limit") || "12", 10);
+
+    const searchParamQ = searchParams.get("q") || ""; // ← dynamique (plus de state figé)
+    const pageParam = parseInt(searchParams.get("page") || "1", 10);
+    const limitParam = parseInt(searchParams.get("limit") || "12", 10);
 
     const [cocktails, setCocktails] = useState([]);
-    const [favoritesList, setFavoritesList] = useState([]); // <-- new state
+    const [favoritesList, setFavoritesList] = useState([]);
     const [selectedCocktail, setSelectedCocktail] = useState(null);
     const [favoriteIds, setFavoriteIds] = useState([]);
     const [displayAnimation, setDisplayAnimation] = useState("animate-in");
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-    // recherche + pagination
-    const [query, setQuery] = useState(initialQ);
-    const debouncedQuery = useDebounce(query, 500);
-    const [page, setPage] = useState(initialPage);
-    const [limit, setLimit] = useState(initialLimit);
+    const [page, setPage] = useState(pageParam);
+    const [limit, setLimit] = useState(limitParam);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
+
+    const debouncedQuery = useDebounce(searchParamQ, 400);
 
     // motion
     const [reducedMotion, setReducedMotion] = useState(false);
@@ -101,11 +101,11 @@ const CocktailList = () => {
     // sync URL
     useEffect(() => {
         const params = {};
-        if (debouncedQuery) params.q = debouncedQuery;
-        if (page && page > 1) params.page = String(page);
-        if (limit && limit !== 12) params.limit = String(limit);
+        if (searchParamQ) params.q = searchParamQ;
+        if (page > 1) params.page = String(page);
+        if (limit !== 12) params.limit = String(limit);
         setSearchParams(params, { replace: true });
-    }, [debouncedQuery, page, limit, setSearchParams]);
+    }, [searchParamQ, page, limit, setSearchParams]);
 
     // fetch favorites on mount
     useEffect(() => {
@@ -184,17 +184,14 @@ const CocktailList = () => {
     // derive visible list depending on mode (fix: visibleCocktails was missing)
     const visibleCocktails = useMemo(() => {
         let list = showFavoritesOnly ? favoritesList : cocktails;
-        
-        // ✅ Appliquer la recherche même en mode favoris
-        if (debouncedQuery && debouncedQuery.trim()) {
-            const searchTerm = debouncedQuery.toLowerCase();
-            list = list.filter(cocktail => 
-                cocktail.name.toLowerCase().includes(searchTerm) ||
-                cocktail.theme.toLowerCase().includes(searchTerm) ||
-                cocktail.description.toLowerCase().includes(searchTerm)
+        if (debouncedQuery.trim()) {
+            const q = debouncedQuery.toLowerCase();
+            list = list.filter(c =>
+                c.name.toLowerCase().includes(q) ||
+                c.theme.toLowerCase().includes(q) ||
+                c.description.toLowerCase().includes(q)
             );
         }
-        
         return list;
     }, [showFavoritesOnly, favoritesList, cocktails, debouncedQuery]);
 
@@ -266,19 +263,7 @@ const CocktailList = () => {
 
     return (
         <div className="container-fluid py-4 cocktail-list">
-            {/* Search input */}
-            <div className="row mb-3">
-                <div className="col-12 d-flex justify-content-center">
-                    <input
-                        type="text"
-                        className="form-control w-50"
-                        placeholder="Rechercher par nom, ingrédient ou thème..."
-                        aria-label="Rechercher un cocktail par nom, ingrédient ou thème"
-                        value={query}
-                        onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-                    />
-                </div>
-            </div>
+            {/* barre de recherche retirée */}
 
             {isFetching && (
                 <div className="row mb-2">
@@ -371,7 +356,7 @@ const CocktailList = () => {
                                 onSelect={handleSelect}
                                 isFavorite={favoriteIds.includes(cocktail._id)}
                             />
-                        ))}
+                        ))} 
                     </div>
                 </div>
             </div>

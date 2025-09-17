@@ -42,6 +42,10 @@ class Analytics {
         this.track('search_performed', { query, resultsCount });
     }
 
+    trackUnifiedSearch(query, mode, count) {
+        this.track('navbar_search', { query, mode, results: count });
+    }
+
     getSessionSummary() {
         return {
             duration: Date.now() - this.sessionStart,

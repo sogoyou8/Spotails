@@ -11,6 +11,7 @@ const SpotifyPlayerAdvanced = ({ cocktail }) => {
     const [error, setError] = useState(null);
     const [playbackProgress, setPlaybackProgress] = useState(0);
     const [volume, setVolume] = useState(0.7);
+    const [favoriteTracks, setFavoriteTracks] = useState([]);
     const audioRef = useRef(null);
     const progressInterval = useRef(null);
 
@@ -72,6 +73,18 @@ const SpotifyPlayerAdvanced = ({ cocktail }) => {
         }
     };
 
+    const loadFavoriteTracks = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+            
+            const res = await axios.get("/spotify/favorite-tracks");
+            setFavoriteTracks(res.data);
+        } catch (error) {
+            console.error("Erreur chargement favoris:", error);
+        }
+    };
+
     const playPreview = (track) => {
         if (currentTrack && currentTrack.id === track.id) {
             // Pause current track
@@ -96,6 +109,37 @@ const SpotifyPlayerAdvanced = ({ cocktail }) => {
                     setCurrentTrack(null);
                 });
             }
+        }
+    };
+
+    const toggleTrackFavorite = async (track) => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            alert("Connectez-vous pour sauvegarder des morceaux");
+            return;
+        }
+
+        const isFavorite = favoriteTracks.some(fav => fav.trackId === track.id);
+        
+        try {
+            if (isFavorite) {
+                await axios.delete(`/spotify/favorite-tracks/${track.id}`);
+                setFavoriteTracks(prev => prev.filter(fav => fav.trackId !== track.id));
+            } else {
+                await axios.post(`/spotify/favorite-tracks`, {
+                    trackId: track.id,
+                    trackName: track.name,
+                    artistName: track.artists?.[0]?.name,
+                    previewUrl: track.preview_url,
+                    spotifyUrl: track.external_urls?.spotify,
+                    albumImage: track.album?.images?.[2]?.url,
+                    cocktailId: cocktail._id
+                });
+                loadFavoriteTracks(); // Recharger pour avoir l'objet complet
+            }
+        } catch (error) {
+            console.error("Erreur favoris track:", error);
+            alert("Erreur lors de la sauvegarde");
         }
     };
 
@@ -190,6 +234,10 @@ const SpotifyPlayerAdvanced = ({ cocktail }) => {
             alert("Erreur lors de la création de la playlist: " + (error.response?.data?.message || error.message));
         }
     };
+
+    useEffect(() => {
+        loadFavoriteTracks();
+    }, []);
 
     if (!cocktail) return null;
 
@@ -304,7 +352,7 @@ const SpotifyPlayerAdvanced = ({ cocktail }) => {
                         )}
                     </div>
                     
-                    {recommendations.slice(0, 8).map((track, index) => (
+                    {recommendations.slice(0, 10).map((track, index) => (
                         <div key={track.id} className="track-item d-flex align-items-center justify-content-between py-2 border-bottom border-light">
                             <div className="d-flex align-items-center flex-grow-1">
                                 <div className="track-number me-3 text-muted" style={{ minWidth: "20px" }}>
@@ -347,6 +395,15 @@ const SpotifyPlayerAdvanced = ({ cocktail }) => {
                             </div>
                             
                             <div className="d-flex align-items-center gap-2">
+                                {/* Nouveau bouton favoris */}
+                                <button 
+                                    onClick={() => toggleTrackFavorite(track)}
+                                    className={`btn btn-sm ${favoriteTracks.some(fav => fav.trackId === track.id) ? "btn-warning" : "btn-outline-warning"}`}
+                                    title={favoriteTracks.some(fav => fav.trackId === track.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                                >
+                                    <i className={`bi ${favoriteTracks.some(fav => fav.trackId === track.id) ? "bi-heart-fill" : "bi-heart"}`}></i>
+                                </button>
+                                
                                 {track.preview_url ? (
                                     <button 
                                         onClick={() => playPreview(track)}
