@@ -96,6 +96,19 @@ const CocktailDetail = () => {
         e.currentTarget.style.opacity = "0.7"; // ← Indicateur visuel
     };
 
+    const renderQuantity = (q, mode) => {
+        const OPTIONAL_SYMBOL = "X"; // ← change ici si tu veux un autre signe (« ✕ », « — », etc.)
+        if (mode === "to_taste") return "Au goût";
+        if (mode === "as_needed") return OPTIONAL_SYMBOL;
+        if (mode === "garnish") return "Garniture";
+        if (mode === "count") return (typeof q === "number" ? q : (q || ""));
+        // treat explicit zero as "optional" symbol for display
+        if (q === 0) return OPTIONAL_SYMBOL;
+        if (typeof q === "number" && Number.isFinite(q)) return q * personCount;
+        if (typeof q === "string" && q.trim()) return q;
+        return ""; // rien si vide
+    };
+
     if (isError) return <NotFoundPage />;
     if (!cocktail) return <div>Chargement...</div>;
 
@@ -180,10 +193,8 @@ const CocktailDetail = () => {
                     <div className="row">
                         {cocktail.ingredients.map((ingredient) => (
                             <div className="col-6 col-md-4 col-lg-3 mb-4" key={ingredient._id}>
-                                <div className="card py-3 px-3 text-center h-100 shadow" style={{
-                                    backgroundColor: "transparent",
-                                }}>
-                                    <h2 style={{ color: cocktail.textColor }}>{ingredient.quantity * personCount}</h2>
+                                <div className="card py-3 px-3 text-center h-100 shadow" style={{ backgroundColor: "transparent" }}>
+                                    <h2 style={{ color: cocktail.textColor }}>{renderQuantity(ingredient.quantity, ingredient.quantityMode)}</h2>
                                     <h5 style={{ color: cocktail.textColor === "white" ? "#9f9f9f" : "" }} className={cocktail.textColor === "black" ? "text-muted" : ""}>
                                         {ingredient.unit}
                                     </h5>

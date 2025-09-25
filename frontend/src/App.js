@@ -54,6 +54,7 @@ function App() {
                                 }
                             />
                             <Route path="/themes" element={<ThemesPage />} />
+                            <Route path="/themes/:themeParam" element={<ThemesPage />} />
                             <Route path="/favorite-tracks" 
                                 element={
                                     <PrivateRoute>

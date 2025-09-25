@@ -2,12 +2,108 @@ const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 const verifyToken = require("../middleware/verifyToken");
+const verifyAdmin = require("../middleware/verifyAdmin"); // add
 const User = require("../models/User");
 const FavoriteTrack = require("../models/FavoriteTrack");
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
+
+// --- Cache des seeds Spotify (24h) ---
+const seedsCache = { list: [], ts: 0 };
+const SEEDS_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function getAvailableSeedsCached() {
+  const now = Date.now();
+  if (seedsCache.list.length && (now - seedsCache.ts) < SEEDS_TTL_MS) return seedsCache.list;
+  const token = await getServerAccessToken();
+  try {
+    const { data } = await axios.get(
+      "https://api.spotify.com/v1/recommendations/available-genre-seeds",
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    seedsCache.list = data.genres || [];
+    seedsCache.ts = now;
+    return seedsCache.list;
+  } catch (e) {
+    console.warn("getAvailableSeedsCached failed, fallback used:", e.response?.status || e.message);
+    return ["pop","rock","jazz","electronic","house","hip-hop","hip hop","rap","latin","reggae","classical","ambient","chill","dance","metal","disco","soul","funk"];
+  }
+}
+
+const norm = (s="") => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+
+const themeToSeedsAlias = {
+  "tropical": ["latin","reggae"],
+  "detente": ["chill","ambient"],
+  "détente": ["chill","ambient"],
+  "ambiance": ["chill","lounge","ambient"],
+  "classique": ["classical","jazz"],
+  "moderne": ["pop","electronic"],
+  "fruité": ["pop","latin"],
+  "epice": ["funk","rock"],
+  "épicé": ["funk","rock"],
+  "hip hop": ["hip-hop","rap"],
+  "variete francaise": ["french pop","pop"],
+  "variété française": ["french pop","pop"]
+};
+
+async function resolveSeedsForTheme(rawTheme="") {
+  const available = await getAvailableSeedsCached();
+  const n = norm(rawTheme);
+  if (!n) return ["pop"];
+
+  // exact
+  if (available.includes(n)) return [n];
+
+  // alias directs
+  if (themeToSeedsAlias[n]) {
+    return themeToSeedsAlias[n].map(norm).filter(s => available.includes(s)).slice(0,3);
+  }
+
+  // contains / fuzzy-lite
+  const contains = available.filter(g => n.includes(g) || g.includes(n));
+  if (contains.length) return contains.slice(0,3);
+
+  // heuristiques
+  if (/(rap|hip.?hop)/.test(n)) return ["hip-hop","rap"].filter(s => available.includes(s));
+  if (/(rock|metal|punk)/.test(n)) return ["rock","metal"].filter(s => available.includes(s));
+  if (/(jazz|blues)/.test(n)) return ["jazz","blues"].filter(s => available.includes(s));
+  if (/(chill|relax|sleep|ambient|lofi|dormir|detente|détente)/.test(n)) return ["chill","ambient"].filter(s => available.includes(s));
+  if (/(electro|edm|house|techno|dance)/.test(n)) return ["electronic","house","dance"].filter(s => available.includes(s));
+  if (/(latin|tropic|reggae|carib)/.test(n)) return ["latin","reggae"].filter(s => available.includes(s));
+  if (/(classique|orchestra|piano)/.test(n)) return ["classical"].filter(s => available.includes(s));
+
+  return ["pop"];
+}
+
+// Endpoint: tester la résolution d’un thème → seeds
+router.get("/resolve-theme", async (req, res) => {
+  try {
+    const t = req.query.theme || "";
+    const seeds = await resolveSeedsForTheme(t);
+    res.json({ theme: t, seeds });
+  } catch {
+    res.status(500).json({ message: "resolve-theme failed" });
+  }
+});
+
+// (optionnel) Audit admin: voir mapping de tous les cocktails
+router.get("/audit/cocktail-themes", verifyAdmin, async (req, res) => {
+  try {
+    const Cocktail = require("../models/Cocktail");
+    const list = await Cocktail.find({}, { name:1, theme:1 }).lean();
+    const result = [];
+    for (const c of list) {
+      const seeds = await resolveSeedsForTheme(c.theme || "");
+      result.push({ id: c._id, name: c.name, theme: c.theme, seeds });
+    }
+    res.json({ total: result.length, data: result });
+  } catch (e) {
+    res.status(500).json({ message: "audit failed" });
+  }
+});
 
 // Générer un token d'accès serveur (Client Credentials)
 const getServerAccessToken = async () => {
@@ -310,85 +406,28 @@ router.get("/recommendations/:cocktailId", async (req, res) => {
     try {
         const { cocktailId } = req.params;
         const Cocktail = require("../models/Cocktail");
-        
         const cocktail = await Cocktail.findById(cocktailId);
-        if (!cocktail) {
-            return res.status(404).json({ message: "Cocktail introuvable" });
-        }
+        if (!cocktail) return res.status(404).json({ message: "Cocktail introuvable." });
 
         const serverAccess = await getServerAccessToken();
+        const seeds = await resolveSeedsForTheme(cocktail.theme || "");
+        const recUrl = `https://api.spotify.com/v1/recommendations?limit=30&seed_genres=${encodeURIComponent(seeds.join(","))}`;
 
-        // Mapper thème cocktail -> terme de recherche Spotify
-        const searchTerms = {
-            "tropical": "reggae caribbean latin",
-            "classique": "jazz smooth classical", 
-            "moderne": "pop electronic dance",
-            "fruité": "pop summer reggae",
-            "épicé": "rock funk energy",
-            "rafraîchissant": "chill electronic ambient",
-            "rock": "rock alternative indie",
-            "jazz": "jazz smooth blues",
-            "rap": "hip-hop rap urban",
-            "disco": "disco funk dance",
-            "détente": "chill lounge ambient"
-        };
-
-        const searchTerm = searchTerms[(cocktail.theme || "").toLowerCase()] || "pop chill";
-        
         try {
-            // Étape 1: Rechercher des tracks liées au thème
-            const searchResp = await axios.get("https://api.spotify.com/v1/search", {
-                headers: { Authorization: `Bearer ${serverAccess}` },
-                params: {
-                    q: searchTerm,
-                    type: "track",
-                    limit: 10,
-                    market: "FR"
-                }
-            });
-
-            const searchTracks = searchResp.data?.tracks?.items || [];
-            if (searchTracks.length === 0) {
-                throw new Error("Aucune track trouvée pour la recherche");
-            }
-
-            // Étape 2: Utiliser ces tracks comme seeds pour les recommandations
-            const seedTrackIds = searchTracks.slice(0, 5).map(t => t.id).join(",");
-            
-            const recoResp = await axios.get("https://api.spotify.com/v1/recommendations", {
-                headers: { Authorization: `Bearer ${serverAccess}` },
-                params: {
-                    seed_tracks: seedTrackIds,
-                    limit: 15,
-                    market: "FR"
-                }
-            });
-
-            const tracks = recoResp?.data?.tracks || searchTracks.slice(0, 10);
-            
-            res.json({ tracks });
-        } catch (recoErr) {
-            console.warn("Recommandations par search échouent, utilisation directe de la recherche:", recoErr.response?.status);
-
-            // Fallback : utiliser directement les résultats de recherche
-            const fallbackResp = await axios.get("https://api.spotify.com/v1/search", {
-                headers: { Authorization: `Bearer ${serverAccess}` },
-                params: {
-                    q: `${cocktail.theme} ${cocktail.name}`,
-                    type: "track",
-                    limit: 10,
-                    market: "FR"
-                }
-            });
-            
-            res.json({ tracks: fallbackResp.data?.tracks?.items || [] });
+          const { data } = await axios.get(recUrl, { headers: { Authorization: `Bearer ${serverAccess}` } });
+          if (Array.isArray(data.tracks) && data.tracks.length) {
+            return res.json({ tracks: data.tracks, seeds, method: "recommendations" });
+          }
+        } catch (reErr) {
+          console.warn("recommendations by seeds failed:", reErr.response?.status || reErr.message);
         }
+
+        // Fallback: conserver votre logique search existante (…)
+        // res.json({ tracks: [], seeds, method: "fallback" });
+        return res.json({ tracks: [], seeds, method: "fallback" });
     } catch (error) {
         console.error("Erreur recommandations Spotify:", error.response?.status, error.response?.data || error.message);
-        res.status(500).json({ 
-            message: "Erreur lors des recommandations Spotify", 
-            details: error.response?.data || error.message 
-        });
+        res.status(500).json({ message: "Erreur lors des recommandations Spotify" });
     }
 });
 
@@ -784,6 +823,73 @@ router.post("/refresh", verifyToken, async (req, res) => {
     } catch (err) {
         res.status(500).json({ ok: false, error: err.response?.data || err.message });
     }
+});
+
+// Retourne les genres Spotify + thèmes déjà présents en base
+router.get("/genres", async (req, res) => {
+  try {
+    const seeds = await getAvailableSeedsCached(); // array of spotify seeds
+    const Cocktail = require("../models/Cocktail");
+    const themesRaw = await Cocktail.distinct("theme") || [];
+    const themes = themesRaw
+      .map(t => (typeof t === "string" ? t.trim() : ""))
+      .filter(Boolean);
+
+    // Ne pas renvoyer de doublons : garder l'ordre seeds puis thèmes supplémentaires
+    const seedsLc = seeds.map(s => s.toLowerCase());
+    const extraThemes = themes.filter(t => !seedsLc.includes((t || "").toLowerCase()));
+
+    res.json({ spotifySeeds: seeds, existingThemes: extraThemes });
+  } catch (err) {
+    console.error("Erreur /spotify/genres:", err?.message || err);
+    res.status(500).json({ spotifySeeds: [], existingThemes: [] });
+  }
+});
+
+// util diacritiques (si absent ici, reprend celui plus haut)
+const strip = (s = "") => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+// Récupère une image Spotify pour un thème (catégorie ou première playlist)
+async function findSpotifyThemeImage(theme) {
+  const token = await getServerAccessToken();
+  const headers = { Authorization: `Bearer ${token}` };
+  const t = strip(theme);
+
+  // 1) Catégories
+  try {
+    const { data } = await axios.get("https://api.spotify.com/v1/browse/categories", {
+      headers, params: { country: "FR", locale: "fr_FR", limit: 50 }
+    });
+    const items = data?.categories?.items || [];
+    let found = items.find(c => strip(c.name) === t) ||
+                items.find(c => strip(c.name).includes(t) || t.includes(strip(c.name)));
+    if (found?.icons?.length) return found.icons[0].url;
+  } catch (_) {}
+
+  // 2) Playlists liées au thème
+  try {
+    const { data } = await axios.get("https://api.spotify.com/v1/search", {
+      headers,
+      params: { q: theme, type: "playlist", market: "FR", limit: 1 }
+    });
+    const pl = data?.playlists?.items?.[0];
+    const img = pl?.images?.[0]?.url;
+    if (img) return img;
+  } catch (_) {}
+
+  return null;
+}
+
+// GET /api/spotify/theme-image?theme=rock
+router.get("/theme-image", async (req, res) => {
+  try {
+    const theme = req.query.theme || "";
+    if (!theme.trim()) return res.status(400).json({ image: null });
+    const url = await findSpotifyThemeImage(theme);
+    res.json({ image: url });
+  } catch (e) {
+    res.status(500).json({ image: null });
+  }
 });
 
 module.exports = router;

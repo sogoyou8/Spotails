@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useMemo} from "react";
-import axios from "axios";
+import axios from "../axiosConfig"; // s'assurer d'utiliser axiosConfig
 import { useNavigate, useParams } from "react-router-dom";
 import { processError } from '../utils/errorUtils';
 import {formatRecipeText} from "../utils/textUtils";
@@ -25,6 +25,14 @@ const AdminCocktailForm = () => {
 
     // ajout du state pour gérer les erreurs de validation
     const [errorMessage, setErrorMessage] = useState("");
+    const [spotifySeeds, setSpotifySeeds] = useState([]);
+    const [existingThemes, setExistingThemes] = useState([]);
+    const [useCustomTheme, setUseCustomTheme] = useState(false);
+    const [resolvedSeeds, setResolvedSeeds] = useState([]);
+
+    const FALLBACK_GENRES = [
+      "pop","rock","hip hop","jazz","electronic","house","reggae","latin","disco","classical","ambient","chill"
+    ];
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -55,19 +63,117 @@ const AdminCocktailForm = () => {
         }
     }, [id]);
 
+    useEffect(() => {
+        let mounted = true;
+        const loadGenres = async () => {
+          try {
+            const res = await axios.get("/spotify/genres");
+            if (!mounted) return;
+            const seeds = Array.isArray(res.data?.spotifySeeds) ? res.data.spotifySeeds : [];
+            const themes = Array.isArray(res.data?.existingThemes) ? res.data.existingThemes : [];
+            setSpotifySeeds(seeds.length ? seeds : FALLBACK_GENRES);
+            setExistingThemes(themes || []);
+          } catch (err) {
+            console.warn("Erreur loadGenres:", err?.message || err);
+            if (mounted) {
+                setSpotifySeeds(FALLBACK_GENRES);
+                setExistingThemes([]);
+            }
+          }
+        };
+        loadGenres();
+        return () => { mounted = false; };
+    }, []);
+
+    // When loading an existing cocktail, if its theme isn't in genres, enable custom mode
+    useEffect(() => {
+        if (!spotifySeeds.length) return;
+        if (id) { // editing existing cocktail
+            // assume you've already fetched cocktail data into `form` state somewhere above
+            const currentTheme = form.theme || "";
+            if (currentTheme && !spotifySeeds.includes(currentTheme.toLowerCase()) && !spotifySeeds.includes(currentTheme)) {
+                setUseCustomTheme(true);
+            } else {
+                setUseCustomTheme(false);
+            }
+        }
+    }, [spotifySeeds, id, form.theme]);
+
+    useEffect(() => {
+    const t = (form.theme || "").trim();
+    if (!t) { setResolvedSeeds([]); return; }
+    axios.get("/spotify/resolve-theme", { params: { theme: t } })
+      .then(r => setResolvedSeeds(r.data?.seeds || []))
+      .catch(() => setResolvedSeeds([]));
+  }, [form.theme]);
+
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
     const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        setImageFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
+      const file = e?.target?.files?.[0];
+      if (!file) return; // nothing selected
+      // revoke previous blob url if created
+      try {
+        if (previewUrl && typeof previewUrl === "string" && previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(previewUrl);
+        }
+      } catch (err) {
+        console.warn("revokeObjectURL failed:", err);
+      }
+
+      // Only create object URL for File/Blob objects
+      try {
+        if (file instanceof Blob) {
+          const url = URL.createObjectURL(file);
+          setPreviewUrl(url);
+          setImageFile(file);
+          setForm(prev => ({ ...prev, image: "" })); // clear any string path
+        } else if (typeof file === "string") {
+          // fallback: sometimes you may set a URL string directly
+          setPreviewUrl(file);
+          setImageFile(null);
+          setForm(prev => ({ ...prev, image: file }));
+        } else {
+          console.warn("Unsupported file type:", file);
+          setErrorMessage("Fichier non supporté.");
+        }
+      } catch (err) {
+        console.error("handleFileChange createObjectURL error:", err);
+        setErrorMessage("Erreur lors du chargement de l'image.");
+      }
     };
+
     const handleThumbnailChange = (e) => {
-        const file = e.target.files[0];
-        setThumbnailFile(file);
-        setThumbnailUrl(URL.createObjectURL(file));
+      const file = e?.target?.files?.[0];
+      if (!file) return;
+      try {
+        if (thumbnailUrl && typeof thumbnailUrl === "string" && thumbnailUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(thumbnailUrl);
+        }
+      } catch (err) {
+        console.warn("revokeObjectURL failed:", err);
+      }
+
+      try {
+        if (file instanceof Blob) {
+          const url = URL.createObjectURL(file);
+          setThumbnailUrl(url);
+          setThumbnailFile(file);
+          setForm(prev => ({ ...prev, thumbnail: "" }));
+        } else if (typeof file === "string") {
+          setThumbnailUrl(file);
+          setThumbnailFile(null);
+          setForm(prev => ({ ...prev, thumbnail: file }));
+        } else {
+          console.warn("Unsupported thumbnail type:", file);
+          setErrorMessage("Fichier miniature non supporté.");
+        }
+      } catch (err) {
+        console.error("handleThumbnailChange createObjectURL error:", err);
+        setErrorMessage("Erreur lors du chargement de la miniature.");
+      }
     };
 
     const handleIngredientChange = (index, e) => {
@@ -84,70 +190,68 @@ const AdminCocktailForm = () => {
         setIngredientsList(newIngredients);
     };
 
-    // ajout helper validation
+    // validateIngredients -> include quantityMode, allow empty quantity for non-exact
     const validateIngredients = (ingredientsArray) => {
-      if (!Array.isArray(ingredientsArray) || ingredientsArray.length === 0) {
-        return { ok: false, message: "Ajoutez au moins un ingrédient." };
+      const filled = (ingredientsArray || []).filter(i => i && String(i.name || "").trim());
+      if (filled.length === 0) {
+        return { ok: false, message: "Vous devez ajouter au moins un ingrédient avec un nom." };
       }
-      for (let i = 0; i < ingredientsArray.length; i++) {
-        const it = ingredientsArray[i];
-        if (!it.name || it.name.toString().trim() === "") {
-          return { ok: false, message: `Ingrédient ${i + 1} : nom manquant.` };
+      const sanitized = filled.map(it => {
+        const name = String(it.name).trim();
+        const unit = it.unit ? String(it.unit).trim() : "";
+        const mode = it.quantityMode || "exact"; // default
+        const raw = it.quantity;
+        let quantity = null;
+        if (mode === "exact") {
+          // require numeric or textual but allow empty -> set null (backend can reject if needed)
+          if (raw !== undefined && raw !== null && String(raw).trim() !== "") {
+            const num = Number(String(raw).replace(",", "."));
+            quantity = Number.isFinite(num) ? num : String(raw).trim();
+            // if numeric zero, convert to null and set as_needed mode
+            if (quantity === 0) {
+              quantity = null;
+              // prefer explicit mode from UI, else mark as as_needed
+            }
+          } else {
+            quantity = null;
+          }
+        } else {
+          // non-exact modes don't require quantity value
+          quantity = raw !== undefined && raw !== null && String(raw).trim() !== "" ? (isNaN(Number(String(raw).replace(",", "."))) ? String(raw).trim() : Number(String(raw).replace(",", "."))) : null;
         }
-        if (it.quantity == null || it.quantity === "") {
-          return { ok: false, message: `Ingrédient ${i + 1} : quantité manquante.` };
-        }
-        if (!it.unit || it.unit.toString().trim() === "") {
-          return { ok: false, message: `Ingrédient ${i + 1} : unité manquante.` };
-        }
-      }
-      return { ok: true };
+        return { name, quantity, unit, quantityMode: mode };
+      });
+      return { ok: true, ingredients: sanitized };
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setErrorMessage("");
+
+        const v = validateIngredients(ingredientsList);
+        if (!v.ok) { setErrorMessage(v.message); return; }
+
+        const fd = new FormData();
+        fd.append("name", form.name);
+        fd.append("theme", form.theme);
+        fd.append("recipe", form.recipe);
+        fd.append("description", form.description);
+        fd.append("color", form.color);
+        fd.append("textColor", form.textColor);
+        // When building FormData, stringify the sanitized ingredients
+        fd.append("ingredients", JSON.stringify(v.ingredients));
+        if (imageFile) fd.append("image", imageFile);
+        if (thumbnailFile) fd.append("thumbnail", thumbnailFile);
+
         try {
-            // reset previous error
-            setErrorMessage("");
-
-            // suppose `ingredients` est un tableau d'objets { name, quantity, unit }
-            const check = validateIngredients(ingredientsList);
-            if (!check.ok) {
-                // afficher erreur via state (et éviter référence à setErrorMessage non définie)
-                setErrorMessage(check.message);
-                return;
-            }
-
-            const dataToSend = new FormData();
-            Object.entries(form).forEach(([key, value]) => {
-                if (key !== "image") dataToSend.append(key, value);
-            });
-
-            if (imageFile) dataToSend.append("image", imageFile);
-            if (thumbnailFile) dataToSend.append("thumbnail", thumbnailFile);
-
-            dataToSend.append("ingredients", JSON.stringify(ingredientsList));
-
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    "Content-Type": "multipart/form-data"
-                }
-            };
             if (id) {
-                if (window.confirm("Modifier ce cocktail ?")) {
-                    await axios.put(`http://localhost:5000/api/cocktails/${id}`, dataToSend, config);
-                    alert("Cocktail modifié !");
-                }
+                await axios.put(`/cocktails/${id}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
             } else {
-                if (window.confirm("Ajouter ce cocktail ?")) {
-                    await axios.post("http://localhost:5000/api/cocktails", dataToSend, config);
-                    alert("Cocktail ajouté !");
-                }
+                await axios.post("/cocktails", fd, { headers: { "Content-Type": "multipart/form-data" } });
             }
             navigate("/admin/cocktails");
-        } catch (error) {
-            processError(error);
+        } catch (err) {
+            setErrorMessage(err.response?.data?.message || err.message);
         }
     };
 
@@ -162,6 +266,16 @@ const AdminCocktailForm = () => {
                 ))
             : null;
     }, [ingredientsList]);
+
+    const handleThemeSelect = (value) => {
+        if (value === "__custom__") {
+            setUseCustomTheme(true);
+            setForm({ ...form, theme: "" });
+        } else {
+            setUseCustomTheme(false);
+            setForm({ ...form, theme: value });
+        }
+    };
 
     return (
         <div className="cocktail-form">
@@ -256,10 +370,53 @@ const AdminCocktailForm = () => {
                                 </div>
 
                                 <div className="mb-3">
-                                    <label className="form-label">Thème</label>
-                                    <input type="text" className="form-control" name="theme" value={form.theme}
-                                           onChange={handleChange} required/>
-                                </div>
+  <label className="form-label">Thème</label>
+  <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+    <select
+      className="form-select"
+      value={ useCustomTheme ? "__custom__" : (form.theme || "") }
+      onChange={(e) => handleThemeSelect(e.target.value)}
+      style={{minWidth:260}}
+    >
+      <option value="">Sélectionnez un thème...</option>
+
+      {existingThemes.length > 0 && (
+        <optgroup label="Thèmes existants">
+          {existingThemes.map(t => (
+            <option key={`ex-${t}`} value={t}>{t}</option>
+          ))}
+        </optgroup>
+      )}
+
+      {spotifySeeds.length > 0 && (
+        <optgroup label="Genres Spotify">
+          {spotifySeeds.map(g => (
+            <option key={`sp-${g}`} value={g}>{g}</option>
+          ))}
+        </optgroup>
+      )}
+
+      <option value="__custom__">Autre (saisir manuellement)</option>
+    </select>
+
+    {useCustomTheme && (
+      <input
+        type="text"
+        className="form-control"
+        placeholder="Saisissez votre thème personnalisé..."
+        value={form.theme || ""}
+        onChange={(e) => setForm({ ...form, theme: e.target.value })}
+        style={{minWidth:220}}
+      />
+    )}
+  </div>
+
+  {form.theme && (
+    <div className="form-text mt-1">
+      Seeds Spotify proposées: {(resolvedSeeds || []).join(", ") || "pop (défaut)"}
+    </div>
+  )}
+</div>
 
                                 <div className="mb-3">
                                     <label className="form-label">Description</label>
@@ -298,6 +455,17 @@ const AdminCocktailForm = () => {
                                                 className="form-control"
                                                 required
                                             />
+                                            <select
+                                              className="form-select form-select-sm ms-2"
+                                              value={ingredientsList[index].quantityMode || "exact"}
+                                              onChange={(e) => handleIngredientChange(index, { target: { name: "quantityMode", value: e.target.value } })}
+                                            >
+                                              <option value="exact">Exact</option>
+                                              <option value="to_taste">Au goût</option>
+                                              <option value="as_needed">À volonté</option>
+                                              <option value="garnish">Garniture</option>
+                                              <option value="count">Nombre</option>
+                                            </select>
                                             {ingredientsList.length > 1 && (
                                                 <button type="button" className="btn btn-danger" onClick={() => handleRemoveIngredient(index)}>
                                                     ✕
