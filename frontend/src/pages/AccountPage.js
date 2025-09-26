@@ -1,353 +1,458 @@
-import React, { useState, useEffect } from "react";
-import axios from "../axiosConfig";
-import { processError } from '../utils/errorUtils';
-import { useNavigate } from "react-router-dom";
-import "../styles/AccountPage.css";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from '../axiosConfig';
+import '../styles/AccountPage.css';
 
 const AccountPage = () => {
     const [userInfo, setUserInfo] = useState(null);
-    const [activeTab, setActiveTab] = useState("account");
-    const [newUsername, setNewUsername] = useState("");
-    const [newEmail, setNewEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [activeTab, setActiveTab] = useState("profile");
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [spotifyConnected, setSpotifyConnected] = useState(false);
+    const [stats, setStats] = useState({
+        favoriteTracks: 0,
+        playlists: 0,
+        joinDate: null
+    });
+    
+    // Forms states
+    const [profileForm, setProfileForm] = useState({
+        username: '',
+        email: ''
+    });
+    const [passwordForm, setPasswordForm] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    
     const navigate = useNavigate();
-
-    const fetchUserData = async () => {
-        try {
-            const response = await axios.get("http://localhost:5000/api/users/me", {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-            });
-            setUserInfo(response.data);
-            setNewUsername(response.data.username);
-            setNewEmail(response.data.email);
-            setSpotifyConnected(!!response.data.spotifyId);
-        } catch (err) {
-            setError("Impossible de récupérer les informations de l'utilisateur.");
-        }
-    };
 
     useEffect(() => {
         fetchUserData();
-
-        // Vérifier les paramètres URL pour Spotify
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('spotify_connected')) {
-            alert('Spotify connecté avec succès !');
-            setSpotifyConnected(true);
-        } else if (urlParams.get('spotify_error')) {
-            alert('Erreur lors de la connexion Spotify');
-        }
+        fetchUserStats();
     }, []);
 
-    const handleChangeUsername = async () => {
-        const usernameRegex = /^[a-zA-Z0-9]+$/;
-        if (!usernameRegex.test(newUsername) || newUsername.length > 16 || newUsername.length < 3) {
-            setError("Le nom d'utilisateur doit être alphanumérique et contenir entre 3 et 16 caractères.");
-            setSuccessMessage("");
-            return;
-        }
+    const fetchUserData = async () => {
         try {
-            await axios.put(
-                "http://localhost:5000/api/users/update-username",
-                {username: newUsername},
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                }
-            );
-            localStorage.setItem("username", newUsername);
-            setSuccessMessage("Nom d'utilisateur mis à jour avec succès !");
-            setError("");
+            const response = await axios.get('/users/me');
+            const userData = response.data;
+            setUserInfo(userData);
+            setProfileForm({
+                username: userData.username || '',
+                email: userData.email || ''
+            });
+            setSpotifyConnected(!!userData.spotifyId);
         } catch (err) {
-            setError("Erreur lors de la mise à jour du pseudo. " + err.response?.data?.message || err.message);
-            setSuccessMessage("");
-            fetchUserData();
-        }
-    };
-
-    const handleChangeEmail = async () => {
-        const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-        if (!emailRegex.test(newEmail)) {
-            setError("L'adresse email n'est pas valide.");
-            setSuccessMessage("");
-            return;
-        }
-        try {
-            await axios.put(
-                "http://localhost:5000/api/users/update-email",
-                { email: newEmail },
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                }
-            );
-            setSuccessMessage("E-mail mis à jour avec succès !");
-            setError("");
-        } catch (err) {
-            setError("Erreur lors de la mise à jour de l'email. " + err.response?.data?.message || err.message);
-            setSuccessMessage("");
-            fetchUserData();
-        }
-    };
-
-    const handleDeleteAccount = async () => {
-        const confirmDelete = window.confirm(
-            "Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible."
-        );
-        if (confirmDelete) {
-            try {
-                await axios.delete("http://localhost:5000/api/users/delete-account", {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                    data: {
-                        password: prompt("Entrez votre mot de passe pour confirmer la suppression."),
-                    },
-                });
-                alert("Compte supprimé avec succès.");
-                localStorage.removeItem("token");
-                navigate("/login");
-            } catch (err) {
-                alert("Erreur lors de la suppression du compte. " + err.response?.data?.message || err.message);
+            setError("Erreur lors du chargement des données utilisateur");
+            if (err.response?.status === 401) {
+                navigate('/login');
             }
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleChangePassword = async () => {
-        const { currentPassword, newPassword, confirmPassword } = password;
+    const fetchUserStats = async () => {
+        try {
+            const [tracksRes, playlistsRes] = await Promise.all([
+                axios.get('/spotify/favorite-tracks'),
+                axios.get('/playlists')
+            ]);
+            
+            setStats({
+                favoriteTracks: tracksRes.data.length || 0,
+                playlists: playlistsRes.data.length || 0,
+                joinDate: userInfo?.createdAt
+            });
+        } catch (err) {
+            console.error('Erreur stats:', err);
+        }
+    };
 
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            setError("Tous les champs sont requis.");
-            setSuccessMessage("");
+    const handleProfileUpdate = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccessMessage('');
+
+        try {
+            await axios.put('/users/profile', profileForm);
+            setSuccessMessage('Profil mis à jour avec succès');
+            localStorage.setItem('username', profileForm.username);
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Erreur lors de la mise à jour');
+        }
+    };
+
+    const handlePasswordUpdate = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccessMessage('');
+
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            setError('Les mots de passe ne correspondent pas');
             return;
         }
 
-        if (newPassword.length < 8) {
-            setError("Le mot de passe doit contenir au moins 8 caractères.");
-            setSuccessMessage("");
-            return;
-        }
-
-        if (newPassword !== confirmPassword) {
-            setError("Les nouveaux mots de passe ne correspondent pas.");
-            setSuccessMessage("");
+        if (passwordForm.newPassword.length < 8) {
+            setError('Le mot de passe doit contenir au moins 8 caractères');
             return;
         }
 
         try {
-            await axios.put(
-                "http://localhost:5000/api/users/update-password",
-                { currentPassword, newPassword, confirmPassword },
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                }
-            );
-            setSuccessMessage("Mot de passe mis à jour avec succès.");
-            setError("");
+            await axios.put('/users/password', {
+                currentPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword
+            });
+            setSuccessMessage('Mot de passe mis à jour avec succès');
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setTimeout(() => setSuccessMessage(''), 3000);
         } catch (err) {
-            setError("Erreur lors de la mise à jour du mot de passe. " + err.response?.data?.message || err.message);
-            setSuccessMessage("");
+            setError(err.response?.data?.message || 'Erreur lors de la mise à jour');
         }
     };
 
     const connectSpotify = async () => {
         try {
-            const res = await axios.get("/spotify/auth", {
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-            });
-            window.location.href = res.data.authURL;
-        } catch (error) {
-            processError(error);
+            const response = await axios.get('/spotify/auth');
+            window.location.href = response.data.authURL;
+        } catch (err) {
+            setError('Erreur lors de la connexion Spotify');
         }
     };
 
     const disconnectSpotify = async () => {
-        if (window.confirm("Déconnecter votre compte Spotify ?")) {
-            try {
-                await axios.delete("/spotify/disconnect", {
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-                });
-                setSpotifyConnected(false);
-                alert("Spotify déconnecté");
-            } catch (error) {
-                processError(error);
-            }
+        if (!window.confirm('Êtes-vous sûr de vouloir déconnecter Spotify ?')) return;
+        
+        try {
+            await axios.delete('/spotify/disconnect');
+            setSpotifyConnected(false);
+            setSuccessMessage('Spotify déconnecté avec succès');
+        } catch (err) {
+            setError('Erreur lors de la déconnexion Spotify');
         }
     };
 
-    if (!userInfo) {
-        return <div>Chargement...</div>;
+    const handleDeleteAccount = async () => {
+        const confirmation = window.prompt(
+            'Pour supprimer votre compte, tapez "SUPPRIMER" en majuscules:'
+        );
+        
+        if (confirmation !== 'SUPPRIMER') return;
+        
+        try {
+            await axios.delete('/users/me');
+            localStorage.clear();
+            navigate('/');
+        } catch (err) {
+            setError('Erreur lors de la suppression du compte');
+        }
+    };
+
+    const getInitials = (name) => {
+        if (!name) return 'U';
+        return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Non disponible';
+        return new Date(dateString).toLocaleDateString('fr-FR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className="account-page">
+                <div className="loading-container">
+                    <div className="loading-spinner"></div>
+                    <span>Chargement de votre compte...</span>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="panel-compte">
-            <div className="container pt-5 pb-5">
-                <h1 className="text-center mb-4">Votre compte</h1>
-                <div className="row">
-                    <div className="col-md-3">
-                        <div className="list-group onglets p-2 mb-3">
-                            {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-                            <a
-                                href="#"
-                                className={`list-group-item ${
-                                    activeTab === "account" ? "active" : "list-group-item-action"
-                                }`}
-                                onClick={() => setActiveTab("account")}
-                            >
-                                <i className="bi bi-gear"></i> Paramètres du compte
-                            </a>
-                            {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-                            <a
-                                href="#"
-                                className={`list-group-item ${
-                                    activeTab === "security" ? "active" : "list-group-item-action"
-                                }`}
-                                onClick={() => setActiveTab("security")}
-                            >
-                                <i className="bi bi-shield"></i> Sécurité
-                            </a>
+        <div className="account-page">
+            <div className="account-container">
+                {/* Header avec avatar et infos principales */}
+                <div className="account-header">
+                    <div className="profile-card">
+                        <div className="profile-avatar">
+                            <span className="avatar-text">{getInitials(userInfo?.username)}</span>
+                        </div>
+                        <div className="profile-info">
+                            <h1 className="profile-name">{userInfo?.username}</h1>
+                            <p className="profile-email">{userInfo?.email}</p>
+                            <div className="profile-badges">
+                                <span className={`role-badge ${userInfo?.role}`}>
+                                    <i className={`bi ${userInfo?.role === 'admin' ? 'bi-shield-check' : 'bi-person'}`}></i>
+                                    {userInfo?.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+                                </span>
+                                {spotifyConnected && (
+                                    <span className="spotify-badge">
+                                        <i className="bi bi-spotify"></i>
+                                        Spotify connecté
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
-
-                    <div className="col-md-9">
-                        {activeTab === "account" && (
-                            <div className="onglet p-3">
-                                <h5>PARAMÈTRES DU COMPTE</h5>
-                                {error && <div className="alert alert-danger">{error}</div>}
-                                {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                                <hr/>
-
-                                <div className="mb-3">
-                                    <label className="form-label">Pseudo</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={newUsername}
-                                        onChange={(e) => setNewUsername(e.target.value)}
-                                    />
-                                    <button
-                                        className="btn btn-success mt-2"
-                                        onClick={handleChangeUsername}
-                                    >
-                                        Sauvegarder
-                                    </button>
-                                </div>
-                                <hr/>
-
-                                <div className="mb-3">
-                                    <label className="form-label">Email</label>
-                                    <input
-                                        type="email"
-                                        className="form-control"
-                                        value={newEmail}
-                                        onChange={(e) => setNewEmail(e.target.value)}
-                                    />
-                                    <button
-                                        className="btn btn-success mt-2"
-                                        onClick={handleChangeEmail}
-                                    >
-                                        Sauvegarder
-                                    </button>
-                                </div>
-                                <hr/>
-
-                                <p className="text-danger">Supprimer le compte</p>
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={handleDeleteAccount}
-                                >
-                                    Supprimer le compte
-                                </button>
-                            </div>
-                        )}
-
-                        {activeTab === "security" && (
-                            <div className="onglet p-3">
-                                <h5>SÉCURITÉ</h5>
-                                {error && <div className="alert alert-danger">{error}</div>}
-                                {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                                <hr />
-
-                                <div className="mb-3">
-                                    <label className="form-label">Mot de passe actuel</label>
-                                    <input
-                                        type="password"
-                                        className="form-control"
-                                        value={password.currentPassword || ""}
-                                        placeholder="****************"
-                                        onChange={(e) => setPassword({ ...password, currentPassword: e.target.value })}
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">Nouveau mot de passe</label>
-                                    <input
-                                        type="password"
-                                        className="form-control"
-                                        value={password.newPassword || ""}
-                                        placeholder="****************"
-                                        onChange={(e) => setPassword({ ...password, newPassword: e.target.value })}
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">Confirmer le mot de passe</label>
-                                    <input
-                                        type="password"
-                                        className="form-control"
-                                        value={password.confirmPassword || ""}
-                                        placeholder="****************"
-                                        onChange={(e) => setPassword({ ...password, confirmPassword: e.target.value })}
-                                    />
-                                </div>
-                                <button
-                                    className="btn btn-success"
-                                    onClick={handleChangePassword}
-                                >
-                                    Sauvegarder
-                                </button>
-                            </div>
-                        )}
+                    
+                    {/* Stats rapides */}
+                    <div className="stats-grid">
+                        <div className="stat-card">
+                            <div className="stat-number">{stats.favoriteTracks}</div>
+                            <div className="stat-label">Morceaux favoris</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-number">{stats.playlists}</div>
+                            <div className="stat-label">Playlists créées</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-number">{formatDate(userInfo?.createdAt)}</div>
+                            <div className="stat-label">Membre depuis</div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Section Spotify */}
-                <div className="card mt-4">
-                    <div className="card-header d-flex align-items-center">
-                        <i className="bi bi-spotify me-2 text-success"></i>
-                        <h5 className="mb-0">Connexion Spotify</h5>
+                {/* Navigation par onglets */}
+                <div className="account-nav">
+                    <button
+                        className={`nav-tab ${activeTab === 'profile' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('profile')}
+                    >
+                        <i className="bi bi-person-gear"></i>
+                        Profil
+                    </button>
+                    <button
+                        className={`nav-tab ${activeTab === 'security' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('security')}
+                    >
+                        <i className="bi bi-shield-lock"></i>
+                        Sécurité
+                    </button>
+                    <button
+                        className={`nav-tab ${activeTab === 'integrations' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('integrations')}
+                    >
+                        <i className="bi bi-plug"></i>
+                        Intégrations
+                    </button>
+                    <button
+                        className={`nav-tab ${activeTab === 'danger' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('danger')}
+                    >
+                        <i className="bi bi-exclamation-triangle"></i>
+                        Zone dangereuse
+                    </button>
+                </div>
+
+                {/* Messages d'état */}
+                {error && (
+                    <div className="alert alert-error">
+                        <i className="bi bi-exclamation-circle"></i>
+                        {error}
                     </div>
-                    <div className="card-body">
-                        {spotifyConnected ? (
-                            <div className="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <i className="bi bi-check-circle text-success me-2"></i>
-                                    Votre compte Spotify est connecté
-                                </div>
-                                <button onClick={disconnectSpotify} className="btn btn-outline-danger btn-sm">
-                                    Déconnecter
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <i className="bi bi-x-circle text-muted me-2"></i>
-                                    Connectez votre compte pour créer des playlists automatiquement
-                                </div>
-                                <button onClick={connectSpotify} className="btn btn-success btn-sm">
-                                    <i className="bi bi-spotify me-1"></i>
-                                    Connecter Spotify
-                                </button>
-                            </div>
-                        )}
+                )}
+                {successMessage && (
+                    <div className="alert alert-success">
+                        <i className="bi bi-check-circle"></i>
+                        {successMessage}
                     </div>
+                )}
+
+                {/* Contenu des onglets */}
+                <div className="account-content">
+                    {activeTab === 'profile' && (
+                        <div className="tab-content">
+                            <div className="section-card">
+                                <div className="section-header">
+                                    <h3>Informations du profil</h3>
+                                    <p>Modifiez vos informations personnelles</p>
+                                </div>
+                                <form onSubmit={handleProfileUpdate} className="form-grid">
+                                    <div className="form-group">
+                                        <label htmlFor="username">Nom d'utilisateur</label>
+                                        <input
+                                            type="text"
+                                            id="username"
+                                            value={profileForm.username}
+                                            onChange={(e) => setProfileForm({
+                                                ...profileForm,
+                                                username: e.target.value
+                                            })}
+                                            className="form-input"
+                                            maxLength="20"
+                                            required
+                                        />
+                                        <small className="form-help">
+                                            Entre 3 et 20 caractères, lettres et chiffres uniquement
+                                        </small>
+                                    </div>
+                                    <div className="form-group">
+                                        <label htmlFor="email">Adresse email</label>
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            value={profileForm.email}
+                                            onChange={(e) => setProfileForm({
+                                                ...profileForm,
+                                                email: e.target.value
+                                            })}
+                                            className="form-input"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-actions">
+                                        <button type="submit" className="btn btn-primary">
+                                            <i className="bi bi-check"></i>
+                                            Sauvegarder les modifications
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'security' && (
+                        <div className="tab-content">
+                            <div className="section-card">
+                                <div className="section-header">
+                                    <h3>Changer le mot de passe</h3>
+                                    <p>Assurez-vous d'utiliser un mot de passe fort et unique</p>
+                                </div>
+                                <form onSubmit={handlePasswordUpdate} className="form-grid">
+                                    <div className="form-group">
+                                        <label htmlFor="currentPassword">Mot de passe actuel</label>
+                                        <input
+                                            type="password"
+                                            id="currentPassword"
+                                            value={passwordForm.currentPassword}
+                                            onChange={(e) => setPasswordForm({
+                                                ...passwordForm,
+                                                currentPassword: e.target.value
+                                            })}
+                                            className="form-input"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label htmlFor="newPassword">Nouveau mot de passe</label>
+                                        <input
+                                            type="password"
+                                            id="newPassword"
+                                            value={passwordForm.newPassword}
+                                            onChange={(e) => setPasswordForm({
+                                                ...passwordForm,
+                                                newPassword: e.target.value
+                                            })}
+                                            className="form-input"
+                                            minLength="8"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label htmlFor="confirmPassword">Confirmer le mot de passe</label>
+                                        <input
+                                            type="password"
+                                            id="confirmPassword"
+                                            value={passwordForm.confirmPassword}
+                                            onChange={(e) => setPasswordForm({
+                                                ...passwordForm,
+                                                confirmPassword: e.target.value
+                                            })}
+                                            className="form-input"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-actions">
+                                        <button type="submit" className="btn btn-primary">
+                                            <i className="bi bi-shield-check"></i>
+                                            Mettre à jour le mot de passe
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'integrations' && (
+                        <div className="tab-content">
+                            <div className="section-card">
+                                <div className="section-header">
+                                    <h3>Connexion Spotify</h3>
+                                    <p>Connectez votre compte Spotify pour créer des playlists automatiquement</p>
+                                </div>
+                                <div className="integration-item">
+                                    <div className="integration-info">
+                                        <div className="integration-icon spotify">
+                                            <i className="bi bi-spotify"></i>
+                                        </div>
+                                        <div className="integration-details">
+                                            <h4>Spotify</h4>
+                                            <p>
+                                                {spotifyConnected 
+                                                    ? 'Votre compte est connecté et prêt à créer des playlists'
+                                                    : 'Connectez votre compte pour profiter de toutes les fonctionnalités'
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="integration-actions">
+                                        {spotifyConnected ? (
+                                            <button 
+                                                onClick={disconnectSpotify}
+                                                className="btn btn-outline btn-danger"
+                                            >
+                                                <i className="bi bi-unlink"></i>
+                                                Déconnecter
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={connectSpotify}
+                                                className="btn btn-spotify"
+                                            >
+                                                <i className="bi bi-spotify"></i>
+                                                Connecter Spotify
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'danger' && (
+                        <div className="tab-content">
+                            <div className="section-card danger-zone">
+                                <div className="section-header">
+                                    <h3>Zone dangereuse</h3>
+                                    <p>Actions irréversibles qui affecteront définitivement votre compte</p>
+                                </div>
+                                <div className="danger-item">
+                                    <div className="danger-info">
+                                        <h4>Supprimer le compte</h4>
+                                        <p>
+                                            Une fois supprimé, toutes vos données seront définitivement perdues.
+                                            Cette action est irréversible.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={handleDeleteAccount}
+                                        className="btn btn-danger"
+                                    >
+                                        <i className="bi bi-trash"></i>
+                                        Supprimer le compte
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

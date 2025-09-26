@@ -1,12 +1,113 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
-import axios from "../axiosConfig";
-import useDebounce from "../hooks/useDebounce";
-import { analytics } from "../utils/analytics";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap-icons/font/bootstrap-icons.css";
-import "../styles/Navbar.css";
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { jwtDecode }from 'jwt-decode';
+import axios from '../axiosConfig';
+import useDebounce from '../hooks/useDebounce';
+import { analytics } from '../utils/analytics';
+import '../styles/Navbar.css';
+
+// Composant UserMenu déroulant
+const UserMenu = ({ username, isAdmin, onLogout }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  return (
+    <div className="user-menu-container" ref={menuRef}>
+      <button
+        className="navbar-link user-menu-trigger"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+      >
+        <div className="user-avatar">
+          <span className="avatar-text">{getInitials(username)}</span>
+        </div>
+        <span className="user-name d-none d-md-inline">{username}</span>
+        <i className={`bi bi-chevron-down dropdown-arrow ${isOpen ? 'rotated' : ''}`}></i>
+      </button>
+
+      {isOpen && (
+        <div className="user-dropdown-menu">
+          <div className="dropdown-header">
+            <div className="user-avatar large">
+              <span className="avatar-text">{getInitials(username)}</span>
+            </div>
+            <div className="user-info">
+              <div className="user-name-full">{username}</div>
+              <div className="user-role">{isAdmin ? 'Administrateur' : 'Utilisateur'}</div>
+            </div>
+          </div>
+          
+          <div className="dropdown-divider"></div>
+          
+          <div className="dropdown-body">
+            <Link 
+              to="/account" 
+              className="dropdown-item"
+              onClick={() => setIsOpen(false)}
+            >
+              <i className="bi bi-person-gear"></i>
+              <span>Mon compte</span>
+            </Link>
+            
+            {isAdmin && (
+              <Link 
+                to="/admin" 
+                className="dropdown-item admin-item"
+                onClick={() => setIsOpen(false)}
+              >
+                <i className="bi bi-shield-check"></i>
+                <span>Administration</span>
+              </Link>
+            )}
+          </div>
+          
+          <div className="dropdown-divider"></div>
+          
+          <button 
+            className="dropdown-item logout-item"
+            onClick={() => {
+              setIsOpen(false);
+              onLogout();
+            }}
+          >
+            <i className="bi bi-box-arrow-right"></i>
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -702,21 +803,13 @@ const Navbar = () => {
                                 Mes Sons
                             </Link>
                         )}
+                        
                         {isAuthenticated ? (
-                            <>
-                                <Link to="/account" className="navbar-link me-4">
-                                    <i className="bi bi-person-fill me-1"></i>
-                                    {username}
-                                </Link>
-                                {isAdmin && (
-                                    <Link to="/admin" className="navbar-link navbar-link-admin me-4">
-                                        <i className="bi bi-gear"></i> Admin
-                                    </Link>
-                                )}
-                                <Link to="#" onClick={handleLogout} className="navbar-link navbar-link-logout me-4">
-                                    <i className="bi bi-box-arrow-right"></i>
-                                </Link>
-                            </>
+                            <UserMenu
+                              username={username}
+                              isAdmin={isAdmin}
+                              onLogout={handleLogout}
+                            />
                         ) : (
                             <>
                                 <Link to="/login" className="navbar-link navbar-link-login me-4">
