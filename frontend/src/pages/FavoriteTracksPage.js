@@ -534,75 +534,76 @@ const FavoriteTracksPage = () => {
                   return (
                     <div
                       key={trackIdOf(t)}
-                      className={`track-row ${isPlaying ? "playing" : ""} ${selectedTrack && trackIdOf(selectedTrack) === trackIdOf(t) ? "selected" : ""}`}
+                      className={`favorite-track-item ${isPlaying ? "playing" : ""} ${selectedTrack && trackIdOf(selectedTrack) === trackIdOf(t) ? "selected" : ""}`}
                       role="button"
                       onClick={() => handleTrackSelect(t)}
                     >
-                      <div className="track-cover-wrapper">
-                        <img className="track-cover-xl" src={imageOf(t)} alt={t.trackName || t.name} />
-                        <button
-                          className={`play-overlay ${isPlaying ? "playing" : ""}`}
-                          onClick={(e) => { e.stopPropagation(); playPreview(t); }}
-                          title={isPlaying ? "Pause" : "Play preview"}
-                        >
-                          <i className={`bi ${isPlaying ? "bi-pause-fill" : "bi-play-fill"}`} />
-                        </button>
-                      </div>
-                      <div className="track-mid">
-                        <div className="t-title">
-                          {t.trackName || t.name}
-                          {preview ? (
-                            <span className="preview-chip good">Preview</span>
-                          ) : (
-                            <span className="preview-chip none">No preview</span>
-                          )}
-                          <span
-                            className="track-theme-chip"
-                            style={{ background: `${themeColor}33`, color: themeColor }}
-                            title={`Thème estimé: ${theme}`}
+                      {/* Cover avec bouton play */}
+                      <div className="track-cover-container">
+                        <img 
+                          className="track-cover-image" 
+                          src={imageOf(t)} 
+                          alt={t.trackName || t.name}
+                          onError={(e) => { e.currentTarget.src = "/thumbnail-placeholder.jpg"; }}
+                        />
+                        {preview && (
+                          <button
+                            className={`track-play-btn ${isPlaying ? "playing" : ""}`}
+                            onClick={(e) => { e.stopPropagation(); playPreview(t); }}
+                            title={isPlaying ? "Pause" : "Écouter l'aperçu"}
                           >
-                            {theme}
-                          </span>
-                        </div>
-                        <div className="t-meta">
-                          <span className="theme-chip">Artiste</span>
-                          <span className="artist-strong">{artistText(t)}</span>
-                          {albumNameOf(t) && (
-                            <>
-                              <span className="theme-chip">Album</span>
-                              <span className="text-muted">{albumNameOf(t)}</span>
-                            </>
-                          )}
-                          {typeof pop === "number" && (
-                            <>
-                              <span className="theme-chip">Popularité</span>
-                              <span className="text-muted">{pop}</span>
-                            </>
-                          )}
-                          {duration ? (
-                            <>
-                              <span className="theme-chip">Durée</span>
-                              <span className="text-muted">{formatDuration(duration)}</span>
-                            </>
-                          ) : null}
-                        </div>
-                        <div className="t-sub">
-                          {t.spotifyUrl && (
-                            <span
-                              className="open-link"
-                              onClick={(e) => { e.stopPropagation(); window.open(t.spotifyUrl, "_blank"); }}
-                            >
-                              Ouvrir dans Spotify
+                            <i className={`bi ${isPlaying ? "bi-pause-fill" : "bi-play-fill"}`} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Informations principales */}
+                      <div className="track-main-info">
+                        <div className="track-title-line">
+                          <h6 className="track-title-text">{t.trackName || t.name}</h6>
+                          <div className="track-badges">
+                            {!preview && <span className="status-badge no-preview">No preview</span>}
+                            <span className="genre-badge" style={{ 
+                              backgroundColor: `${themeColor}22`, 
+                              color: themeColor 
+                            }}>
+                              {theme}
                             </span>
+                          </div>
+                        </div>
+                        
+                        <div className="track-subtitle">
+                          <span className="artist-name">{artistText(t)}</span>
+                          {albumNameOf(t) && (
+                            <span className="album-separator"> • {albumNameOf(t)}</span>
                           )}
                         </div>
-                        <div className="pop-line">
-                          <div style={{ width: isPlaying ? "100%" : "0%" }} />
+
+                        <div className="track-metadata">
+                          {typeof pop === "number" && (
+                            <span className="meta-item">Popularité: {pop}%</span>
+                          )}
+                          {duration && (
+                            <span className="meta-item">{formatDuration(duration)}</span>
+                          )}
+                          {t.spotifyUrl && (
+                            <a 
+                              href={t.spotifyUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="spotify-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Ouvrir dans Spotify ↗
+                            </a>
+                          )}
                         </div>
                       </div>
-                      <div className="track-actions-compact">
+
+                      {/* Actions */}
+                      <div className="track-actions-column">
                         <button
-                          className={`action-btn ${inBuilder(trackIdOf(t)) ? "active" : ""}`}
+                          className={`action-button add-button ${inBuilder(trackIdOf(t)) ? "active" : ""}`}
                           title={inBuilder(trackIdOf(t)) ? "Retirer du builder" : "Ajouter au builder"}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -611,8 +612,9 @@ const FavoriteTracksPage = () => {
                         >
                           <i className={`bi ${inBuilder(trackIdOf(t)) ? "bi-check-lg" : "bi-plus-lg"}`} />
                         </button>
+                        
                         <button
-                          className="action-btn danger"
+                          className="action-button remove-button"
                           title="Retirer des favoris"
                           onClick={(e) => { e.stopPropagation(); removeFromFavorites(trackIdOf(t)); }}
                         >

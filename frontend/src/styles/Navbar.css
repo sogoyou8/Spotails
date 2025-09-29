@@ -657,18 +657,140 @@
   color: #ff8a8a;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .user-dropdown-menu {
-    width: 260px;
-    right: -20px;
-  }
-  
-  .dropdown-header {
-    padding: 1rem;
-  }
-  
-  .user-name {
-    display: none;
-  }
+/* Protection spécifique pour le menu utilisateur */
+.user-menu-container .user-menu-trigger {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding: 0 12px !important;
+  border-radius: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+  border: none !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.2s ease !important;
+}
+
+.user-menu-container .user-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.user-menu-container .user-avatar.large {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+}
+
+.user-menu-container .avatar-text {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  color: white !important;
+}
+
+.user-menu-container .user-name {
+  font-size: 0.95rem !important;
+  color: white !important;
+  white-space: nowrap !important;
+}
+
+/* Assurer la visibilité des contrôles de recherche */
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 12px;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.search-mode-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.search-mode-toggle button {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: #b3b3b3;
+  border-radius: 18px;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.search-mode-toggle button.active {
+  background: #1db954;
+  color: #000;
+  font-weight: 600;
+}
+
+.search-mode-toggle button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Options de tracks - toujours visibles quand searchMode === 'tracks' */
+.track-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.track-option-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #b3b3b3;
+  cursor: pointer;
+  user-select: none;
+}
+
+.track-option-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #1db954;
+}
+
+.track-option-checkbox:hover {
+  color: #fff;
+}
+
+/* Icônes des pages - s'assurer qu'elles sont visibles */
+.bi::before {
+  font-family: "bootstrap-icons" !important;
+  font-style: normal;
+  font-weight: normal !important;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: -.125em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Assurer que le widget feedback est visible */
+.feedback-widget {
+  position: fixed !important;
+  bottom: 20px !important;
+  right: 20px !important;
+  z-index: 1050 !important;
 }

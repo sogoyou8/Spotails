@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PrivateRoute from "./components/PrivateRoute";
 import AdminRoute from "./components/AdminRoute";
 import PublicRoute from "./components/PublicRoute";
@@ -21,91 +22,95 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const FavoriteTracksPage = lazy(() => import("./pages/FavoriteTracksPage"));
 const ThemesPage = lazy(() => import("./pages/ThemesPage"));
 
+const queryClient = new QueryClient();
+
 function App() {
-    return (
-        <Router>
-            <div className="d-flex flex-column flex-grow-1">
-                <Navbar />
-                <div className="flex-grow-1">
-                    <Suspense fallback={<div className="text-center mt-5 text-light">Chargement…</div>}>
-                        <Routes>
-                            <Route path="/" element={<LandingPage />} />
-                            <Route path="/cocktails" element={<CocktailList />} />
-                            <Route path="/cocktails/:id" element={<CocktailDetail />} />
-                            <Route path="/login"
-                                element={
-                                    <PublicRoute>
-                                        <LoginPage/>
-                                    </PublicRoute>
-                                }
-                            />
-                            <Route path="/register"
-                                element={
-                                    <PublicRoute>
-                                        <RegisterPage />
-                                    </PublicRoute>
-                                }
-                            />
-                            <Route path="/account"
-                                element={
-                                    <PrivateRoute>
-                                        <AccountPage />
-                                    </PrivateRoute>
-                                }
-                            />
-                            <Route path="/themes" element={<ThemesPage />} />
-                            <Route path="/themes/:themeParam" element={<ThemesPage />} />
-                            <Route path="/favorite-tracks" 
-                                element={
-                                    <PrivateRoute>
-                                        <FavoriteTracksPage />
-                                    </PrivateRoute>
-                                }
-                            />
-                            <Route path="*" element={<NotFoundPage />} />
-                            <Route path="/admin"
-                                element={
-                                    <AdminRoute>
-                                        <AdminDashboard />
-                                    </AdminRoute>
-                                }
-                            />
-                            <Route path="/admin/cocktails"
-                                element={
-                                    <AdminRoute>
-                                        <AdminCocktailManager />
-                                    </AdminRoute>
-                                }
-                            />
-                            <Route path="/admin/users"
-                                element={
-                                    <AdminRoute>
-                                        <AdminUserManager />
-                                    </AdminRoute>
-                                }
-                            />
-                            <Route path="/admin/cocktails/add"
-                                element={
-                                    <AdminRoute>
-                                        <AdminCocktailForm />
-                                    </AdminRoute>
-                                }
-                            />
-                            <Route path="/admin/cocktails/edit/:id"
-                                element={
-                                    <AdminRoute>
-                                        <AdminCocktailForm />
-                                    </AdminRoute>
-                                }
-                            />
-                        </Routes>
-                    </Suspense>
-                </div>
-                <Footer />
-                <FeedbackWidget />
-            </div>
-        </Router>
-    );
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <div className="App">
+          <Navbar />
+          <Suspense fallback={<div className="text-center mt-5 text-light">Chargement…</div>}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/cocktails" element={<CocktailList />} />
+              <Route path="/cocktails/:id" element={<CocktailDetail />} />
+              <Route path="/login"
+                  element={
+                      <PublicRoute>
+                          <LoginPage/>
+                      </PublicRoute>
+                  }
+              />
+              <Route path="/register"
+                  element={
+                      <PublicRoute>
+                          <RegisterPage />
+                      </PublicRoute>
+                  }
+              />
+              <Route path="/account"
+                  element={
+                      <PrivateRoute>
+                          <AccountPage />
+                      </PrivateRoute>
+                  }
+              />
+              <Route path="/themes" element={<ThemesPage />} />
+              <Route path="/themes/:themeParam" element={<ThemesPage />} />
+              <Route path="/favorite-tracks" 
+                  element={
+                      <PrivateRoute>
+                          <FavoriteTracksPage />
+                      </PrivateRoute>
+                  }
+              />
+              <Route path="*" element={<NotFoundPage />} />
+              <Route path="/admin"
+                  element={
+                      <AdminRoute>
+                          <AdminDashboard />
+                      </AdminRoute>
+                  }
+              />
+              <Route path="/admin/cocktails"
+                  element={
+                      <AdminRoute>
+                          <AdminCocktailManager />
+                      </AdminRoute>
+                  }
+              />
+              <Route path="/admin/users"
+                  element={
+                      <AdminRoute>
+                          <AdminUserManager />
+                      </AdminRoute>
+                  }
+              />
+              <Route path="/admin/cocktails/add"
+                  element={
+                      <AdminRoute>
+                          <AdminCocktailForm />
+                      </AdminRoute>
+                  }
+              />
+              <Route path="/admin/cocktails/edit/:id"
+                  element={
+                      <AdminRoute>
+                          <AdminCocktailForm />
+                      </AdminRoute>
+                  }
+              />
+            </Routes>
+          </Suspense>
+          <Footer />
+          
+          {/* NOUVEAU: Widget de feedback global */}
+          <FeedbackWidget />
+        </div>
+      </Router>
+    </QueryClientProvider>
+  );
 }
 
 export default App;

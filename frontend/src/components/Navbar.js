@@ -116,15 +116,22 @@ const Navbar = () => {
     const token = localStorage.getItem("token");
     const isAuthenticated = !!localStorage.getItem("token");
 
-    // États pour la recherche
+    // États pour la recherche - MODIFIÉ: initialiser depuis localStorage
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showSearchResults, setShowSearchResults] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
-    const [searchMode, setSearchMode] = useState("tracks"); // default tracks
+    const [searchMode, setSearchMode] = useState(() => {
+        return localStorage.getItem('spotails-search-mode') || "tracks";
+    });
+    const [autoPlayPreview, setAutoPlayPreview] = useState(() => {
+        return localStorage.getItem('spotails-auto-play') === 'true';
+    });
+    const [onlyWithPreview, setOnlyWithPreview] = useState(() => {
+        return localStorage.getItem('spotails-only-preview') === 'true';
+    });
+    // nombre de résultats de tracks chargés (utilisé dans la recherche)
     const [trackLimit, setTrackLimit] = useState(10);
-    const [autoPlayPreview, setAutoPlayPreview] = useState(false);
-    const [onlyWithPreview, setOnlyWithPreview] = useState(false);
     const [selectedTracks, setSelectedTracks] = useState([]);
     const [favoriteTracks, setFavoriteTracks] = useState([]);
     const [loadingFavorites, setLoadingFavorites] = useState(false);
@@ -470,6 +477,23 @@ const Navbar = () => {
 
     // Helper pour savoir si on montre les suggestions
     const showSuggestions = inputFocused && !searchQuery && searchHistory.length > 0;
+
+    // Persister préférences navbar
+    useEffect(() => {
+        localStorage.setItem('spotails-search-mode', searchMode);
+    }, [searchMode]);
+
+    useEffect(() => {
+        localStorage.setItem('spotails-auto-play', String(autoPlayPreview));
+    }, [autoPlayPreview]);
+
+    useEffect(() => {
+        localStorage.setItem('spotails-only-preview', String(onlyWithPreview));
+    }, [onlyWithPreview]);
+
+    // TEMPORAIRE: Debug - ajoutez ceci après la déclaration de searchMode
+    // console.log('🔍 Navbar searchMode actuel:', searchMode);
+    // console.log('🔍 localStorage search-mode:', localStorage.getItem('spotails-search-mode'));
 
     return (
         <nav className="navbar navbar-expand-lg navbar-custom d-flex justify-content-between align-items-center">

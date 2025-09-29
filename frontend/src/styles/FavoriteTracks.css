@@ -655,3 +655,251 @@
 .cover-picker .cp-grid { display:flex; gap:8px; padding:10px; background:#0f0f0f; border-top:1px solid #1b1b1b; }
 .cp-item { width:56px; height:56px; padding:0; border-radius:8px; overflow:hidden; background:transparent; border:1px solid transparent; }
 .cp-item.active { border-color:#1db954; box-shadow:0 0 0 3px #1db95422; }
+/* === AMÉLIORATION FAVORIS === */
+.favorite-track-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.favorite-track-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.favorite-track-item.selected {
+  background: rgba(29, 185, 84, 0.1);
+  border-color: rgba(29, 185, 84, 0.3);
+}
+
+.favorite-track-item.playing {
+  background: rgba(29, 185, 84, 0.15);
+  border-color: rgba(29, 185, 84, 0.4);
+}
+
+/* Cover avec play button */
+.track-cover-container {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.track-cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.track-play-btn {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(29, 185, 84, 0.9);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.favorite-track-item:hover .track-play-btn {
+  opacity: 1;
+}
+
+.track-play-btn.playing {
+  opacity: 1;
+  background: #1db954;
+}
+
+/* Informations principales */
+.track-main-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.track-title-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.track-title-text {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.track-badges {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.status-badge, .genre-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.no-preview {
+  background: rgba(255, 99, 99, 0.2);
+  color: #ff9999;
+}
+
+.genre-badge {
+  /* Couleur dynamique définie inline */
+}
+
+.track-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.artist-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #e0e0e0;
+}
+
+.album-separator {
+  font-size: 0.8rem;
+  color: #999999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-metadata {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  font-size: 0.75rem;
+  color: #b0b0b0;
+}
+
+.spotify-link {
+  font-size: 0.75rem;
+  color: #1db954;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.spotify-link:hover {
+  color: #1ed760;
+  text-decoration: underline;
+}
+
+/* Actions */
+.track-actions-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.action-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.add-button {
+  background: rgba(29, 185, 84, 0.1);
+  color: #1db954;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+}
+
+.add-button:hover {
+  background: rgba(29, 185, 84, 0.2);
+  transform: scale(1.05);
+}
+
+.add-button.active {
+  background: #1db954;
+  color: #000;
+}
+
+.remove-button {
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.remove-button:hover {
+  background: rgba(231, 76, 60, 0.2);
+  transform: scale(1.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .favorite-track-item {
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .track-cover-container {
+    width: 56px;
+    height: 56px;
+  }
+  
+  .track-title-text {
+    font-size: 0.9rem;
+  }
+  
+  .track-metadata {
+    gap: 8px;
+  }
+  
+  .action-button {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .album-separator {
+    display: none; /* Masquer album sur mobile */
+  }
+}

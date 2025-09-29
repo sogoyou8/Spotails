@@ -1,0 +1,7 @@
+.feedback-widget {
+  position: fixed !important;
+  right: 18px !important;
+  bottom: 18px !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
