@@ -9,6 +9,13 @@ import '../styles/Navbar.css';
 // Composant UserMenu déroulant
 const UserMenu = ({ username, isAdmin, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('spotails-theme') !== 'light';
+  });
+  const [audioAutoPlay, setAudioAutoPlay] = useState(() => {
+    return localStorage.getItem('spotails-audio-autoplay') === 'true';
+  });
+  
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -18,93 +25,193 @@ const UserMenu = ({ username, isAdmin, onLogout }) => {
       }
     };
 
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
+    // helper to avoid layout shift when hiding scrollbar
+    const setBodyNoScroll = (enable) => {
+      if (enable) {
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+        if (scrollbarWidth > 0) {
+          document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
       }
     };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
+      setBodyNoScroll(true);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      setBodyNoScroll(false);
     };
   }, [isOpen]);
 
+  // Gestion du thème
+  useEffect(() => {
+    const theme = darkMode ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('spotails-theme', theme);
+    
+    // Application du thème sans affecter la navbar
+    if (darkMode) {
+      document.body.classList.add('dark-theme');
+      document.body.classList.remove('light-theme');
+      // Préserver les styles navbar
+      document.documentElement.style.setProperty('--navbar-bg', '#121212');
+      document.documentElement.style.setProperty('--navbar-border', 'rgba(255, 255, 255, 0.1)');
+    } else {
+      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
+      // Mode clair MAIS navbar reste sombre
+      document.documentElement.style.setProperty('--navbar-bg', '#121212');
+      document.documentElement.style.setProperty('--navbar-border', 'rgba(255, 255, 255, 0.1)');
+    }
+  }, [darkMode]);
+
+  // Gestion audio
+  useEffect(() => {
+    localStorage.setItem('spotails-audio-autoplay', String(audioAutoPlay));
+    // Application globale de l'autoplay
+    window.spotailsAudioAutoPlay = audioAutoPlay;
+  }, [audioAutoPlay]);
+
+  const toggleTheme = () => {
+    setDarkMode(prev => !prev);
+  };
+
+  const toggleAudioAutoPlay = () => {
+    setAudioAutoPlay(prev => !prev);
+  };
+
   const getInitials = (name) => {
-    if (!name) return 'U';
-    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+    return name ? name.substring(0, 2).toUpperCase() : 'U';
   };
 
   return (
     <div className="user-menu-container" ref={menuRef}>
+      {/* Trigger Button */}
       <button
-        className="navbar-link user-menu-trigger"
+        className={`user-menu-trigger ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
-        aria-haspopup="menu"
         aria-expanded={isOpen}
+        aria-haspopup="true"
       >
         <div className="user-avatar">
           <span className="avatar-text">{getInitials(username)}</span>
+          <div className="avatar-status"></div>
         </div>
-        <span className="user-name d-none d-md-inline">{username}</span>
-        <i className={`bi bi-chevron-down dropdown-arrow ${isOpen ? 'rotated' : ''}`}></i>
+        <span className="user-name">{username}</span>
+        <i className={`bi bi-chevron-${isOpen ? 'up' : 'down'} chevron-icon`}></i>
       </button>
 
-      {isOpen && (
-        <div className="user-dropdown-menu">
-          <div className="dropdown-header">
-            <div className="user-avatar large">
-              <span className="avatar-text">{getInitials(username)}</span>
+      {/* Backdrop */}
+      {isOpen && <div className="menu-backdrop" onClick={() => setIsOpen(false)}></div>}
+
+      {/* Enhanced Dropdown Menu - MODIFIÉ: largeur ajustée */}
+      <div className={`user-dropdown-menu premium ${isOpen ? 'open' : ''}`}>
+        {/* Header avec informations utilisateur */}
+        <div className="dropdown-header">
+          <div className="user-profile-section">
+            <div className="user-avatar-large">
+              <span className="avatar-text-large">{getInitials(username)}</span>
+              <div className="avatar-glow"></div>
             </div>
-            <div className="user-info">
-              <div className="user-name-full">{username}</div>
-              <div className="user-role">{isAdmin ? 'Administrateur' : 'Utilisateur'}</div>
+            <div className="user-info-detailed">
+              <h3 className="user-name-display">{username}</h3>
+              <div className="user-badges">
+                {isAdmin && <span className="badge admin-badge">Administrateur</span>}
+                <span className="badge member-badge">Utilisateur</span>
+              </div>
+              <div className="user-stats">
+                <div className="stat-item">
+                  <i className="bi bi-music-note"></i>
+                  <span>47 favoris</span>
+                </div>
+                <div className="stat-item">
+                  <i className="bi bi-collection-play"></i>
+                  <span>12 playlists</span>
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div className="dropdown-divider"></div>
-          
-          <div className="dropdown-body">
+        </div>
+
+        {/* Navigation principale */}
+        <div className="dropdown-section">
+          <div className="section-title">Navigation</div>
+          <Link 
+            to="/account" 
+            className="dropdown-item premium-item"
+            onClick={() => setIsOpen(false)}
+          >
+            <div className="item-icon">
+              <i className="bi bi-person-gear"></i>
+            </div>
+            <div className="item-content">
+              <span className="item-title">Mon Compte</span>
+              <span className="item-subtitle">Gérer mes informations</span>
+            </div>
+            <i className="bi bi-arrow-right item-arrow"></i>
+          </Link>
+
+          <Link 
+            to="/favorite-tracks" 
+            className="dropdown-item premium-item"
+            onClick={() => setIsOpen(false)}
+          >
+            <div className="item-icon">
+              <i className="bi bi-heart-fill"></i>
+            </div>
+            <div className="item-content">
+              <span className="item-title">Mes Favoris</span>
+              <span className="item-subtitle">Sons et playlists</span>
+            </div>
+            <i className="bi bi-arrow-right item-arrow"></i>
+          </Link>
+        </div>
+
+        {/* Section Admin - MODIFIÉ: couleur violette */}
+        {isAdmin && (
+          <div className="dropdown-section admin-section">
+            <div className="section-title admin-title">
+              <i className="bi bi-shield-check"></i>
+              Administration
+            </div>
             <Link 
-              to="/account" 
-              className="dropdown-item"
+              to="/admin" 
+              className="dropdown-item admin-item"
               onClick={() => setIsOpen(false)}
             >
-              <i className="bi bi-person-gear"></i>
-              <span>Mon compte</span>
+              <div className="item-icon admin-icon">
+                <i className="bi bi-gear-fill"></i>
+              </div>
+              <div className="item-content">
+                <span className="item-title">Dashboard Admin</span>
+                <span className="item-subtitle">Gérer l'application</span>
+              </div>
+              <i className="bi bi-arrow-right item-arrow"></i>
             </Link>
-            
-            {isAdmin && (
-              <Link 
-                to="/admin" 
-                className="dropdown-item admin-item"
-                onClick={() => setIsOpen(false)}
-              >
-                <i className="bi bi-shield-check"></i>
-                <span>Administration</span>
-              </Link>
-            )}
           </div>
-          
-          <div className="dropdown-divider"></div>
-          
+        )}
+
+        {/* Section Paramètres - supprimée (Apparence / Lecture automatique retirées) */}
+
+        {/* Footer avec déconnexion */}
+        <div className="dropdown-footer">
           <button 
-            className="dropdown-item logout-item"
-            onClick={() => {
-              setIsOpen(false);
-              onLogout();
-            }}
+            onClick={() => { setIsOpen(false); onLogout(); }}
+            className="logout-button"
           >
             <i className="bi bi-box-arrow-right"></i>
             <span>Déconnexion</span>
           </button>
+          <div className="version-info">Spotails v2.0.1</div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -143,13 +250,17 @@ const Navbar = () => {
 
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+    // Correction de la vérification admin - IMPORTANT
     let isAdmin = false;
     if (token) {
         try {
             const decodedToken = jwtDecode(token);
             isAdmin = decodedToken.role === "admin";
+            // Mise à jour du localStorage pour cohérence
+            localStorage.setItem("isAdmin", String(isAdmin));
         } catch (error) {
             console.error("Token invalide:", error);
+            localStorage.setItem("isAdmin", "false");
         }
     }
 
@@ -496,358 +607,317 @@ const Navbar = () => {
     // console.log('🔍 localStorage search-mode:', localStorage.getItem('spotails-search-mode'));
 
     return (
-        <nav className="navbar navbar-expand-lg navbar-custom d-flex justify-content-between align-items-center">
-            <div className="container">
-                <Link className="navbar-brand d-flex align-items-center" to="/">
-                    <img
-                        src="/iconWhite.svg"
-                        alt="logo"
-                        width="40"
-                        height="40"
-                        className="d-inline-block align-text-top me-2"
-                    />
-                </Link>
+      <nav className="navbar navbar-expand-lg navbar-custom d-flex justify-content-between align-items-center">
+        <div className="container">
+          <div className="navbar-content">
+            {/* Logo à gauche */}
+            <Link to="/" className="navbar-brand">
+              <img src={`${process.env.PUBLIC_URL}/iconWhite.svg`} alt="Spotails" />
+            </Link>
 
-                <div className="d-flex align-items-center flex-grow-1">
-                    {/* Barre de recherche intégrée */}
-                    <div className="navbar-search-container mx-4 position-relative" style={{ flexGrow: 1, maxWidth: 640 }}>
-    <div className={`spotify-search-wrapper ${showSearchResults ? 'open' : ''}`}>
-        <div className="mode-switch">
-            <button
-                type="button"
-                className={`mode-btn ${searchMode === 'cocktails' ? 'active' : ''}`}
-                onClick={() => { setSearchMode('cocktails'); setHighlightedIndex(-1); }}
-                aria-pressed={searchMode === 'cocktails'}
-            >
-                <i className="bi bi-cup-straw me-1"></i> Cocktails
-            </button>
-            <button
-                type="button"
-                className={`mode-btn ${searchMode === 'tracks' ? 'active' : ''}`}
-                onClick={() => { setSearchMode('tracks'); setHighlightedIndex(-1); }}
-                aria-pressed={searchMode === 'tracks'}
-            >
-                <i className="bi bi-music-note-beamed me-1"></i> Sons
-            </button>
-        </div>
+            {/* Barre de recherche au centre */}
+            <div className="search-section">
+              <div
+                className="navbar-search-container mx-4 position-relative"
+                style={{ flexGrow: 1, maxWidth: 640 }}
+              >
+                <div className={`spotify-search-wrapper ${showSearchResults ? 'open' : ''}`}>
+                  <div className="mode-switch">
+                    <button
+                      type="button"
+                      className={`mode-btn ${searchMode === 'cocktails' ? 'active' : ''}`}
+                      onClick={() => { setSearchMode('cocktails'); setHighlightedIndex(-1); }}
+                      aria-pressed={searchMode === 'cocktails'}
+                    >
+                      <i className="bi bi-cup-straw me-1" /> Cocktails
+                    </button>
+                    <button
+                      type="button"
+                      className={`mode-btn ${searchMode === 'tracks' ? 'active' : ''}`}
+                      onClick={() => { setSearchMode('tracks'); setHighlightedIndex(-1); }}
+                      aria-pressed={searchMode === 'tracks'}
+                    >
+                      <i className="bi bi-music-note-beamed me-1" /> Sons
+                    </button>
+                  </div>
 
-        <form onSubmit={handleSearchSubmit} className="flex-grow-1 d-flex position-relative">
-            <input
-                type="text"
-                className="spotify-search-input"
-                placeholder={
-                    searchMode === "cocktails"
-                        ? "Rechercher un cocktail (nom, thème, mot-clé)…"
-                        : "Rechercher un morceau (titre, artiste)…"
-                }
-                value={searchQuery}
-                onChange={(e) => {
-                    const v = e.target.value;
-                    setSearchQuery(v);
-                    if (v.trim().length === 0) {
-                        setShowSearchResults(false);
-                    } else {
-                        setShowSearchResults(true);
-                    }
-                    setHighlightedIndex(-1);
-                }}
-                onFocus={() => {
-                    setInputFocused(true);
-                    if (searchQuery.trim().length > 0) setShowSearchResults(true);
-                }}
-                onBlur={() => setTimeout(() => setInputFocused(false), 120)}
-            />
-            <div className="search-actions d-flex align-items-center">
-                {searchMode === 'tracks' && (
-                    <button
-                        type="button"
-                        className={`mini-btn ${autoPlayPreview ? 'active' : ''}`}
-                        title="Lecture auto des aperçus"
-                        onClick={() => setAutoPlayPreview(v => !v)}
-                    >
-                        <i className="bi bi-broadcast-pin"></i>
-                    </button>
-                )}
-                {searchMode === 'tracks' && (
-                    <button
-                        type="button"
-                        className={`mini-btn ${onlyWithPreview ? 'active' : ''}`}
-                        title="Seulement morceaux avec aperçu"
-                        onClick={() => setOnlyWithPreview(v => !v)}
-                    >
-                        <i className="bi bi-soundwave"></i>
-                    </button>
-                )}
-                {searchQuery && (
-                    <button
-                        type="button"
-                        className="mini-btn"
-                        title="Effacer"
-                        onClick={() => { setSearchQuery(""); setHighlightedIndex(-1); }}
-                    >
-                        <i className="bi bi-x-lg"></i>
-                    </button>
-                )}
-                <button className="mini-btn primary" type="submit">
-                    <i className="bi bi-search"></i>
-                </button>
-            </div>
-        </form>
-
-        {/* --- Suggestions d'historique (insérer ici) --- */}
-        {showSuggestions && (
-          <div className="search-suggestions" role="listbox" aria-label="Suggestions de recherche">
-            <div className="suggestions-header d-flex justify-content-between align-items-center">
-                <small className="text-muted">Recherches récentes</small>
-                <button
-                    className="btn btn-link p-0 text-decoration-none text-muted clear-history-btn"
-                    onMouseDown={(e) => { e.preventDefault(); clearHistory(); }}
-                >
-                    Effacer
-                </button>
-            </div>
-            <ul className="list-unstyled mb-0">
-                {searchHistory.map((s,i) => (
-                    <li
-                      key={s+i}
-                      className="suggestion-item d-flex justify-content-between align-items-center"
-                      onMouseDown={(e) => {
-                          e.preventDefault();
-                          setSearchQuery(s);
-                          addToHistory(s);
+                  <form onSubmit={handleSearchSubmit} className="flex-grow-1 d-flex position-relative">
+                    <input
+                      type="text"
+                      className="spotify-search-input"
+                      placeholder={
+                        searchMode === "cocktails"
+                          ? "Rechercher un cocktail (nom, thème, mot-clé)…"
+                          : "Rechercher un morceau (titre, artiste)…"
+                      }
+                      value={searchQuery}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setSearchQuery(v);
+                        if (v.trim().length === 0) {
+                          setShowSearchResults(false);
+                        } else {
                           setShowSearchResults(true);
-                          setInputFocused(false);
+                        }
+                        setHighlightedIndex(-1);
                       }}
-                    >
-                      <div className="suggestion-text">{s}</div>
-                      <button
-                        className="btn btn-sm btn-link remove-suggestion"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            setSearchHistory(prev => {
-                                const next = prev.filter(x => x.toLowerCase() !== s.toLowerCase());
-                                saveHistoryToStorage(next);
-                                return next;
-                            });
-                        }}
-                        title={`Supprimer "${s}"`}
-                      >
-                        <i className="bi bi-x-lg"></i>
+                      onFocus={() => {
+                        setInputFocused(true);
+                        if (searchQuery.trim().length > 0) setShowSearchResults(true);
+                      }}
+                      onBlur={() => setTimeout(() => setInputFocused(false), 120)}
+                    />
+                    <div className="search-actions d-flex align-items-center">
+                      {searchMode === 'tracks' && (
+                        <button
+                          type="button"
+                          className={`mini-btn ${autoPlayPreview ? 'active' : ''}`}
+                          title="Lecture auto des aperçus"
+                          onClick={() => setAutoPlayPreview(v => !v)}
+                        >
+                          <i className="bi bi-broadcast-pin" />
+                        </button>
+                      )}
+                      {searchMode === 'tracks' && (
+                        <button
+                          type="button"
+                          className={`mini-btn ${onlyWithPreview ? 'active' : ''}`}
+                          title="Seulement morceaux avec aperçu"
+                          onClick={() => setOnlyWithPreview(v => !v)}
+                        >
+                          <i className="bi bi-soundwave" />
+                        </button>
+                      )}
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          className="mini-btn"
+                          title="Effacer"
+                          onClick={() => { setSearchQuery(""); setHighlightedIndex(-1); }}
+                        >
+                          <i className="bi bi-x-lg" />
+                        </button>
+                      )}
+                      <button className="mini-btn primary" type="submit" aria-label="Rechercher">
+                        <i className="bi bi-search" />
                       </button>
-                    </li>
-                ))}
-            </ul>
-          </div>
-        )}
-    </div>
-    {/* --- Résultats (section plus bas remplacée) --- */}
-    {!showSuggestions && showSearchResults && (searchResults.cocktails?.length > 0 || searchResults.tracks?.length > 0) && (
-        <div className="spotify-results-panel">
-            {/* --- Légende popularité pour les sons --- */}
-            {searchMode === "tracks" && (
-                <div className="results-legend">
-                    <span className="legend-dot" /> Barre verte = popularité Spotify (0–100)
-                </div>
-            )}
-            {searchMode === "cocktails" && (searchResults.cocktails || []).map((c, idx) => {
-                const active = idx === highlightedIndex;
-                return (
-                    <div
-                        key={c._id}
-                        className={`result-item cocktail ${active ? 'active' : ''}`}
-                        onMouseEnter={() => setHighlightedIndex(idx)}
-                        onClick={() => handleResultClick('cocktail', c)}
-                    >
-                        <div className="left">
-                            {(c.thumbnail || c.image) ? (
-                                <img
-                                    src={getUploadUrl(c.thumbnail || c.image)}
-                                    alt={c.name}
-                                    className="thumb-img"
-                                    loading="lazy"
-                                    onError={(e)=>{ e.currentTarget.src="/thumbnail-placeholder.jpg"; }}
-                                />
-                            ) : (
-                                <div className="thumb placeholder">
-                                    <i className="bi bi-cup-straw"></i>
-                                </div>
-                            )}
+                    </div>
+                  </form>
+
+                  {/* Suggestions d'historique */}
+                  {showSuggestions && (
+                    <div className="search-suggestions" role="listbox" aria-label="Suggestions de recherche">
+                      <div className="suggestions-header d-flex justify-content-between align-items-center">
+                        <small className="text-muted">Recherches récentes</small>
+                        <button
+                          className="btn btn-link p-0 text-decoration-none text-muted clear-history-btn"
+                          onMouseDown={(e) => { e.preventDefault(); clearHistory(); }}
+                        >
+                          Effacer
+                        </button>
+                      </div>
+                      <ul className="list-unstyled mb-0">
+                        {searchHistory.map((s, i) => (
+                          <li
+                            key={s + i}
+                            className="suggestion-item d-flex justify-content-between align-items-center"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setSearchQuery(s);
+                              addToHistory(s);
+                              setShowSearchResults(true);
+                              setInputFocused(false);
+                            }}
+                          >
+                            <div className="suggestion-text">{s}</div>
+                            <button
+                              className="btn btn-sm btn-link remove-suggestion"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setSearchHistory(prev => {
+                                  const next = prev.filter(x => x.toLowerCase() !== s.toLowerCase());
+                                  saveHistoryToStorage(next);
+                                  return next;
+                                });
+                              }}
+                              title={`Supprimer "${s}"`}
+                            >
+                              <i className="bi bi-x-lg" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Résultats (cocktails / tracks) */}
+                  {!showSuggestions && showSearchResults && (searchResults.cocktails?.length > 0 || searchResults.tracks?.length > 0) && (
+                    <div className="spotify-results-panel" role="list">
+                      {searchMode === "tracks" && (
+                        <div className="results-legend">
+                          <span className="legend-dot" /> Barre verte = popularité Spotify (0–100)
                         </div>
-                        <div className="center">
-                            <div className="title">{c.name}</div>
-                            <div className="meta">
+                      )}
+
+                      {searchMode === "cocktails" && (searchResults.cocktails || []).map((c, idx) => {
+                        const active = idx === highlightedIndex;
+                        return (
+                          <div
+                            key={c._id}
+                            className={`result-item cocktail ${active ? 'active' : ''}`}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                            onClick={() => handleResultClick('cocktail', c)}
+                            role="option"
+                          >
+                            <div className="left">
+                              {(c.thumbnail || c.image) ? (
+                                <img
+                                  src={getUploadUrl(c.thumbnail || c.image)}
+                                  alt={c.name}
+                                  className="thumb-img"
+                                  loading="lazy"
+                                  onError={(e) => { e.currentTarget.src = "/thumbnail-placeholder.jpg"; }}
+                                />
+                              ) : (
+                                <div className="thumb placeholder">
+                                  <i className="bi bi-cup-straw" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="center">
+                              <div className="title">{c.name}</div>
+                              <div className="meta">
                                 <span className="chip" style={{ backgroundColor: c.color }}>{c.theme}</span>
                                 {c.description && <span className="desc">{c.description.slice(0, 70)}…</span>}
+                              </div>
                             </div>
-                        </div>
-                        <div className="right">
-                            <i className="bi bi-cup-straw"></i>
-                        </div>
-                    </div>
-                );
-            })}
+                            <div className="right">
+                              <i className="bi bi-cup-straw" />
+                            </div>
+                          </div>
+                        );
+                      })}
 
-            {searchMode === "tracks" && (searchResults.tracks || []).map((t, idx) => {
-                const active = idx === highlightedIndex;
-                const themeLabel = inferTrackTheme(t);
-                const themeColor = trackThemeColors[themeLabel] || "#1db954";
-                return (
-                    <div
-                        key={t.id}
-                        className={`result-item track ${active ? 'active' : ''} ${playingTrackId === t.id ? 'playing' : ''}`}
-                        onMouseEnter={() => setHighlightedIndex(idx)}
-                    >
-                        <div className="left">
-                            {t.album?.images?.[2] && (
+                      {searchMode === "tracks" && (searchResults.tracks || []).map((t, idx) => {
+                        const active = idx === highlightedIndex;
+                        const themeLabel = inferTrackTheme(t);
+                        const themeColor = trackThemeColors[themeLabel] || "#1db954";
+                        return (
+                          <div
+                            key={t.id}
+                            className={`result-item track ${active ? 'active' : ''} ${playingTrackId === t.id ? 'playing' : ''}`}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                            role="option"
+                          >
+                            <div className="left">
+                              {t.album?.images?.[2] ? (
                                 <img src={t.album.images[2].url} alt={t.name} className="thumb-img" />
-                            )}
-                            {!t.album?.images?.[2] && (
-                                <div className="thumb placeholder"><i className="bi bi-music-note"></i></div>
-                            )}
-                        </div>
-                        <div className="center" onClick={() => playPreview(t)}>
-                            <div className="title">
+                              ) : (
+                                <div className="thumb placeholder"><i className="bi bi-music-note" /></div>
+                              )}
+                            </div>
+
+                            <div className="center" onClick={() => playPreview(t)}>
+                              <div className="title">
                                 {t.name}
-                                {t.preview_url && <span className="badge-preview ms-2"><i className="bi bi-headphones"></i> 30s</span>}
-                            </div>
-                            <div className="meta">
-                                <span className="artist">
-                                    {t.artists?.map(a => a.name).join(", ") || "Artiste inconnu"}
-                                </span>
+                                {t.preview_url && <span className="badge-preview ms-2"><i className="bi bi-headphones" /> 30s</span>}
+                              </div>
+                              <div className="meta">
+                                <span className="artist">{t.artists?.map(a => a.name).join(", ") || "Artiste inconnu"}</span>
                                 {t.album?.name && <span className="album"> • {t.album.name}</span>}
-                                {/* Nouveau chip thème inféré */}
-                                <span
-                                    className="chip track-theme ms-2"
-                                    style={{ backgroundColor: themeColor, color: "#111" }}
-                                    title={`Thème estimé: ${themeLabel}`}
-                                >
-                                    {themeLabel}
+                                <span className="chip track-theme ms-2" style={{ backgroundColor: themeColor, color: "#111" }} title={`Thème estimé: ${themeLabel}`}>
+                                  {themeLabel}
                                 </span>
-                            </div>
-                            <div className="sub-meta">
+                              </div>
+                              <div className="sub-meta">
                                 {t.duration_ms && <span>{formatDuration(t.duration_ms)}</span>}
                                 {t.external_urls?.spotify && (
-                                    <span className="open-link" onClick={(e) => { e.stopPropagation(); openSpotifyTrack(t); }}>
-                                        Ouvrir Spotify ↗
-                                    </span>
+                                  <span className="open-link" onClick={(e) => { e.stopPropagation(); openSpotifyTrack(t); }}>
+                                    Ouvrir Spotify ↗
+                                  </span>
                                 )}
-                            </div>
-                            <div
-                                className="popularity-bar-mini"
-                                role="progressbar"
-                                aria-label={`Popularité ${t.popularity || 0} pourcent`}
-                                aria-valuenow={t.popularity || 0}
-                                aria-valuemin="0"
-                                aria-valuemax="100"
-                                title={`Popularité Spotify: ${t.popularity || 0}%`}
-                            >
+                              </div>
+                              <div className="popularity-bar-mini" role="progressbar" aria-label={`Popularité ${t.popularity || 0} pourcent`} aria-valuenow={t.popularity || 0} aria-valuemin="0" aria-valuemax="100" title={`Popularité Spotify: ${t.popularity || 0}%`}>
                                 <div style={{ width: `${t.popularity || 0}%` }} />
+                              </div>
                             </div>
-                        </div>
-                        <div className="right d-flex align-items-center gap-1">
-                            <button
-                                className={`mini-btn ${isFavoriteTrack(t.id) ? 'fav' : ''}`}
-                                title="Favori"
-                                onClick={(e) => { e.stopPropagation(); toggleFavoriteTrack(t); }}
-                            >
-                                <i className={`bi ${isFavoriteTrack(t.id) ? 'bi-heart-fill' : 'bi-heart'}`}></i>
-                            </button>
-                            <button
-                                className={`mini-btn ${selectedTracks.find(sel => sel.id === t.id) ? 'sel' : ''}`}
-                                title="Sélection pour playlist"
-                                onClick={(e) => { e.stopPropagation(); toggleSelectTrack(t); }}
-                            >
-                                <i className="bi bi-plus-circle"></i>
-                            </button>
-                            {t.preview_url ? (
-                                <button
-                                    className={`mini-btn ${playingTrackId === t.id ? 'playing' : ''}`}
-                                    title={playingTrackId === t.id ? 'Pause' : 'Lecture aperçu'}
-                                    onClick={(e) => { e.stopPropagation(); playPreview(t); }}
-                                >
-                                    <i className={`bi ${playingTrackId === t.id ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+
+                            <div className="right d-flex align-items-center gap-1">
+                              <button className={`mini-btn ${isFavoriteTrack(t.id) ? 'fav' : ''}`} title="Favori" onClick={(e) => { e.stopPropagation(); toggleFavoriteTrack(t); }}>
+                                <i className={`bi ${isFavoriteTrack(t.id) ? 'bi-heart-fill' : 'bi-heart'}`} />
+                              </button>
+
+                              <button className={`mini-btn ${selectedTracks.find(sel => sel.id === t.id) ? 'sel' : ''}`} title="Sélection pour playlist" onClick={(e) => { e.stopPropagation(); toggleSelectTrack(t); }}>
+                                <i className="bi bi-plus-circle" />
+                              </button>
+
+                              {t.preview_url ? (
+                                <button className={`mini-btn ${playingTrackId === t.id ? 'playing' : ''}`} title={playingTrackId === t.id ? 'Pause' : 'Lecture aperçu'} onClick={(e) => { e.stopPropagation(); playPreview(t); }}>
+                                  <i className={`bi ${playingTrackId === t.id ? 'bi-pause-fill' : 'bi-play-fill'}`} />
                                 </button>
-                            ) : (
-                                <span className="no-preview" title="Pas d'aperçu"><i className="bi bi-volume-mute"></i></span>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
-
-            <div className="results-footer">
-                <button
-                    onClick={handleSeeAll}
-                    className="w-100 btn btn-sm btn-outline-light"
-                    disabled={searchMode === "tracks" && trackLimit >= 50}
-                >
-                    {searchMode === "cocktails"
-                        ? `Voir tous les cocktails pour "${searchQuery}"`
-                        : trackLimit >= 50
-                            ? `Fin des résultats • ${searchResults.tracks?.length || 0} morceaux`
-                            : `Charger plus (${trackLimit} → ${trackLimit === 10 ? 30 : 50})`}
-                </button>
-            </div>
-        </div>
-        )}
-
-                        {isSearching && (
-                            <div className="position-absolute w-100 mt-1 bg-dark border rounded p-3 text-center" style={{ zIndex: 1100 }}>
-                                <div className="spinner-border spinner-border-sm text-light" role="status" />
+                              ) : (
+                                <span className="no-preview" title="Pas d'aperçu"><i className="bi bi-volume-mute" /></span>
+                              )}
                             </div>
-                        )}
+                          </div>
+                        );
+                      })}
 
-                        {showSearchResults && debouncedSearchQuery.length >= 2 && !isSearching &&
-                            searchResults.cocktails?.length === 0 &&
-                            searchResults.tracks?.length === 0 && (
-                                <div className="position-absolute w-100 mt-1 bg-dark border rounded p-3 text-center text-muted" style={{ zIndex: 1100 }}>
-                                    Aucun résultat pour "{debouncedSearchQuery}"
-                                </div>
-                            )}
-
-                        <audio
-                            ref={audioRef}
-                            style={{ display: "none" }}
-                            onEnded={() => setPlayingTrackId(null)}
-                            onError={() => setPlayingTrackId(null)}
-                        />
+                      <div className="results-footer">
+                        <button onClick={handleSeeAll} className="w-100 btn btn-sm btn-outline-light" disabled={searchMode === "tracks" && trackLimit >= 50}>
+                          {searchMode === "cocktails"
+                            ? `Voir tous les cocktails pour "${searchQuery}"`
+                            : trackLimit >= 50
+                              ? `Fin des résultats • ${searchResults.tracks?.length || 0} morceaux`
+                              : `Charger plus (${trackLimit} → ${trackLimit === 10 ? 30 : 50})`}
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="d-flex align-items-center">
-                        <Link to="/cocktails" className="navbar-link me-4">
-                            Nos Cocktails
-                        </Link>
-                        <Link to="/themes" className="navbar-link me-4">
-                            <i className="bi bi-palette me-1"></i>
-                            Thèmes
-                        </Link>
-                        {isAuthenticated && (
-                            <Link to="/favorite-tracks" className="navbar-link me-4">
-                                <i className="bi bi-heart-fill me-1"></i>
-                                Mes Sons
-                            </Link>
-                        )}
-                        
-                        {isAuthenticated ? (
-                            <UserMenu
-                              username={username}
-                              isAdmin={isAdmin}
-                              onLogout={handleLogout}
-                            />
-                        ) : (
-                            <>
-                                <Link to="/login" className="navbar-link navbar-link-login me-4">
-                                    Connexion
-                                </Link>
-                                <Link to="/register" className="navbar-link navbar-link-register">
-                                    Inscription
-                                </Link>
-                            </>
-                        )}
+                  )}
+                  
+                  {isSearching && (
+                    <div className="position-absolute w-100 mt-1 bg-dark border rounded p-3 text-center" style={{ zIndex: 1100 }}>
+                      <div className="spinner-border spinner-border-sm text-light" role="status" />
                     </div>
+                  )}
+
+                  {showSearchResults && debouncedSearchQuery.length >= 2 && !isSearching && searchResults.cocktails?.length === 0 && searchResults.tracks?.length === 0 && (
+                    <div className="position-absolute w-100 mt-1 bg-dark border rounded p-3 text-center text-muted" style={{ zIndex: 1100 }}>
+                      Aucun résultat pour "{debouncedSearchQuery}"
+                    </div>
+                  )}
+
+                  <audio ref={audioRef} style={{ display: "none" }} onEnded={() => setPlayingTrackId(null)} onError={() => setPlayingTrackId(null)} />
                 </div>
+              </div>
             </div>
-        </nav>
+
+            {/* Navigation + Profil à droite */}
+            <div className="navbar-right">
+              <div className="navbar-nav">
+                <Link to="/cocktails" className={`nav-item ${location.pathname === '/cocktails' ? 'active' : ''}`}>
+                  <i className="bi bi-cup-straw" /> Nos Cocktails
+                </Link>
+                <Link to="/themes" className={`nav-item ${location.pathname === '/themes' ? 'active' : ''}`}>
+                  <i className="bi bi-palette" /> Thèmes
+                </Link>
+                <Link to="/favorite-tracks" className={`nav-item ${location.pathname === '/favorite-tracks' ? 'active' : ''}`}>
+                  <i className="bi bi-heart" /> Mes Sons
+                </Link>
+              </div>
+
+              {isAuthenticated ? (
+                <UserMenu username={username} isAdmin={isAdmin} onLogout={handleLogout} />
+              ) : (
+                <div className="auth-buttons">
+                  <Link to="/login" className="btn-auth login">Connexion</Link>
+                  <Link to="/register" className="btn-auth register">Inscription</Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </nav>
     );
 };
 

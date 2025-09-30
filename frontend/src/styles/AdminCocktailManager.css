@@ -71,19 +71,24 @@
 }
 
 .btn-secondary {
-  background: #2a2a2a;
-  color: #ffffff;
+  background: #333;
   border: 1px solid #444;
-  padding: 8px 16px;
+  color: #fff;
+  padding: 10px 16px;
   border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
   transition: all 0.2s ease;
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background: #333;
+.btn-secondary:hover {
+  background: #444;
   border-color: #555;
+  color: #fff;
+  text-decoration: none;
 }
 
 .btn-secondary:disabled {
@@ -700,4 +705,64 @@
   .card-actions {
     flex-wrap: wrap;
   }
+}
+
+/* === BREADCRUMB === */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px 0;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.breadcrumb-link {
+  color: #1db954;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+  color: #1ed760;
+  background: rgba(29, 185, 84, 0.1);
+  text-decoration: none;
+}
+
+.breadcrumb i.bi-chevron-right {
+  color: #555;
+  font-size: 0.8rem;
+}
+
+.breadcrumb > span:last-child {
+  color: #fff;
+  font-weight: 500;
+}
+
+/* === FORM HEADER === */
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #333;
+}
+
+.form-header h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
 }

@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useMemo} from "react";
 import axios from "../axiosConfig"; // s'assurer d'utiliser axiosConfig
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { processError } from '../utils/errorUtils';
 import {formatRecipeText} from "../utils/textUtils";
 
@@ -277,8 +277,33 @@ const AdminCocktailForm = () => {
         }
     };
 
+    const isEdit = Boolean(id);
+
     return (
-        <div className="cocktail-form">
+        <div className="admin-cocktail-form">
+            {/* Breadcrumb */}
+            <div className="breadcrumb">
+                <Link to="/admin" className="breadcrumb-link">
+                    <i className="bi bi-house"></i> Dashboard
+                </Link>
+                <i className="bi bi-chevron-right" />
+                <Link to="/admin/cocktails" className="breadcrumb-link">
+                    Gestion des cocktails
+                </Link>
+                <i className="bi bi-chevron-right" />
+                <span>{isEdit ? 'Modifier cocktail' : 'Nouveau cocktail'}</span>
+            </div>
+
+            <div className="form-header">
+                <h1>{isEdit ? 'Modifier le Cocktail' : 'Ajouter un Nouveau Cocktail'}</h1>
+                <div className="header-actions">
+                    <Link to="/admin/cocktails" className="btn btn-secondary">
+                        <i className="bi bi-arrow-left"></i>
+                        Retour à la liste
+                    </Link>
+                </div>
+            </div>
+
             <div className="container pt-5 pb-5">
                 <div className="row g-0">
                     <div className="col-md-5">

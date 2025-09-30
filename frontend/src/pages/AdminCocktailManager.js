@@ -177,6 +177,15 @@ const AdminCocktailManager = () => {
   // Composants
   const Header = () => (
     <div className="admin-header">
+      {/* Breadcrumb */}
+      <div className="breadcrumb">
+        <Link to="/admin" className="breadcrumb-link">
+          <i className="bi bi-house"></i> Dashboard
+        </Link>
+        <i className="bi bi-chevron-right" />
+        <span>Gestion des cocktails</span>
+      </div>
+
       <div className="header-main">
         <h1>Gestion des Cocktails</h1>
         <div className="stats">
