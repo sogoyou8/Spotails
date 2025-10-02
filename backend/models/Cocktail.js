@@ -10,7 +10,14 @@ const CocktailSchema = new Schema({
   description: { type: String, required: true },
   color: { type: String, default: "#13a444" },
   textColor: { type: String, default: "black" },
-  publish: { type: Boolean, default: false },
+  publish: {
+    type: Boolean,
+    default: false
+  },
+  featured: {
+    type: Boolean,
+    default: false
+  },
   ingredients: [{ type: Schema.Types.ObjectId, ref: "Ingredient" }]
 }, {
   timestamps: true // <-- createdAt et updatedAt automatiques

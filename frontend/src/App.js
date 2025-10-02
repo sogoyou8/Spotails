@@ -21,6 +21,8 @@ const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const FavoriteTracksPage = lazy(() => import("./pages/FavoriteTracksPage"));
 const ThemesPage = lazy(() => import("./pages/ThemesPage"));
+const AdminFavoritesManager = lazy(() => import("./pages/AdminFavoritesManager"));
+const AdminPlaylistManager = lazy(() => import("./pages/AdminPlaylistManager"));
 
 const queryClient = new QueryClient();
 
@@ -98,6 +100,20 @@ function App() {
                   element={
                       <AdminRoute>
                           <AdminCocktailForm />
+                      </AdminRoute>
+                  }
+              />
+              <Route path="/admin/favorites"
+                  element={
+                      <AdminRoute>
+                          <AdminFavoritesManager />
+                      </AdminRoute>
+                  }
+              />
+              <Route path="/admin/playlists"
+                  element={
+                      <AdminRoute>
+                          <AdminPlaylistManager />
                       </AdminRoute>
                   }
               />

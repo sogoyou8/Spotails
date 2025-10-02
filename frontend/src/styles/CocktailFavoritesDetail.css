@@ -1,0 +1,899 @@
+/* CocktailFavoritesDetail - Modal moderne pour afficher les fans d'un cocktail */
+
+.favorites-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: modalOverlayIn 0.3s ease-out;
+}
+
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.favorites-detail-modal {
+  background: linear-gradient(135deg, #1a1a1a, #1e1e1e);
+  border: 1px solid #333;
+  border-radius: 20px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: modalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes modalIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.8) translateY(40px);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* === HEADER AMÉLIORÉ === */
+.modal-header-enhanced {
+  padding: 24px 28px;
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.1), transparent);
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cocktail-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cocktail-mini-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(29, 185, 84, 0.3);
+}
+
+.cocktail-info h2 {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cocktail-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #000;
+  text-transform: uppercase;
+}
+
+.fans-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e74c3c;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.close-btn-enhanced {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.close-btn-enhanced:hover {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+  transform: scale(1.1);
+}
+
+/* === BODY AMÉLIORÉ === */
+.modal-body-enhanced {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.loading-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 16px;
+  color: #b3b3b3;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(29, 185, 84, 0.2);
+  border-top: 3px solid #1db954;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner-small {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(29, 185, 84, 0.2);
+  border-top: 2px solid #1db954;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.empty-fans {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty-fans i {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  color: #e74c3c;
+  opacity: 0.6;
+}
+
+.empty-fans h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 1.4rem;
+}
+
+.empty-fans p {
+  margin: 0;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+/* === FANS CONTAINER === */
+.fans-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.fans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 24px 28px;
+}
+
+/* === FAN CARDS AMÉLIORÉES === */
+.fan-card {
+  background: linear-gradient(135deg, #222, #2a2a2a);
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.fan-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.fan-card:hover::before,
+.fan-card.selected::before {
+  transform: scaleX(1);
+}
+
+.fan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  border-color: #1db954;
+}
+
+.fan-card.selected {
+  border-color: #1db954;
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.1), #2a2a2a);
+  transform: translateY(-2px);
+}
+
+.fan-avatar {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.avatar-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.engagement-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.admin-crown {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  border: 2px solid #1a1a1a;
+}
+
+.fan-details {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.fan-details h4 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.fan-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.favorites-stat,
+.join-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.favorites-stat {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.engagement-info {
+  margin-top: 8px;
+}
+
+.engagement-level {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fan-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.view-profile-btn {
+  background: rgba(29, 185, 84, 0.2);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  color: #1db954;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-profile-btn:hover {
+  background: #1db954;
+  color: #000;
+  border-color: #1db954;
+}
+
+/* === SECTION COCKTAILS UTILISATEUR === */
+.user-cocktails-section {
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.05), transparent);
+  border-top: 1px solid rgba(29, 185, 84, 0.2);
+  padding: 24px 28px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1db954;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.collection-stats {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.loading-cocktails {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: #b3b3b3;
+}
+
+.empty-collection {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.empty-collection i {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.user-cocktails-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.user-cocktail-card {
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.user-cocktail-card:hover {
+  transform: scale(1.05);
+  border-color: #1db954;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.cocktail-image {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.cocktail-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.user-cocktail-card:hover .cocktail-image img {
+  transform: scale(1.1);
+}
+
+.current-cocktail-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #f39c12;
+  color: #000;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.cocktail-card-info {
+  padding: 8px;
+  text-align: center;
+}
+
+.cocktail-card-info h5 {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-mini-badge {
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #000;
+  text-transform: uppercase;
+}
+
+/* === FOOTER AMÉLIORÉ === */
+.modal-footer-enhanced {
+  padding: 20px 28px;
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.stat-item i {
+  color: #1db954;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-promote {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  border: none;
+  color: #000;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.btn-promote:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+}
+
+.btn-close-modal {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-close-modal:hover {
+  background: #444;
+  border-color: #666;
+}
+
+/* === COLLECTION UTILISATEUR === */
+.user-collection-preview {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-avatar-large {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.avatar-circle-large {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fff;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.admin-crown-large {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  border: 3px solid #1a1a1a;
+}
+
+.user-collection-info h2 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.user-collection-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.collection-badge,
+.member-since {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #b3b3b3;
+}
+
+.collection-badge {
+  color: #1db954;
+  font-weight: 600;
+}
+
+/* === CONTAINER COLLECTION === */
+.user-collection-container {
+  padding: 24px 28px;
+}
+
+.empty-collection {
+  text-align: center;
+  padding: 80px 20px;
+  color: #666;
+}
+
+.empty-collection i {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  color: #1db954;
+  opacity: 0.6;
+}
+
+.empty-collection h3 {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.empty-collection p {
+  margin: 0;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+/* === GRID COCKTAILS PRINCIPALE === */
+.user-cocktails-grid-main {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.user-cocktail-card-main {
+  background: linear-gradient(135deg, #222, #2a2a2a);
+  border: 1px solid #333;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.user-cocktail-card-main:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  border-color: #1db954;
+}
+
+.cocktail-image-main {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.cocktail-image-main img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.user-cocktail-card-main:hover .cocktail-image-main img {
+  transform: scale(1.1);
+}
+
+.cocktail-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.user-cocktail-card-main:hover .cocktail-overlay {
+  opacity: 1;
+}
+
+.view-cocktail-btn {
+  background: #1db954;
+  color: #000;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.view-cocktail-btn:hover {
+  background: #1ed760;
+  transform: scale(1.05);
+  text-decoration: none;
+  color: #000;
+}
+
+.cocktail-card-info-main {
+  padding: 16px;
+}
+
+.cocktail-card-info-main h5 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-badge-main {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #000;
+  text-transform: uppercase;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.cocktail-meta-main {
+  margin-top: 8px;
+}
+
+.added-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+/* === BOUTON RETOUR === */
+.btn-back {
+  background: rgba(52, 152, 219, 0.2);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  color: #3498db;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.btn-back:hover {
+  background: #3498db;
+  color: #fff;
+  border-color: #3498db;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .favorites-detail-modal {
+    max-width: 95vw;
+    max-height: 90vh;
+    margin: 20px;
+  }
+  
+  .modal-header-enhanced {
+    padding: 16px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .cocktail-preview {
+    width: 100%;
+  }
+  
+  .close-btn-enhanced {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+  }
+  
+  .fans-grid {
+    grid-template-columns: 1fr;
+    padding: 16px 20px;
+    gap: 12px;
+  }
+  
+  .user-cocktails-section {
+    padding: 16px 20px;
+  }
+  
+  .user-cocktails-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+  
+  .modal-footer-enhanced {
+    padding: 16px 20px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .footer-stats {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .user-collection-preview {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .user-collection-meta {
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .user-cocktails-grid-main {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  
+  .user-collection-container {
+    padding: 16px 20px;
+  }
+  
+  .cocktail-card-info-main {
+    padding: 12px;
+  }
+}
+
+/* === ANIMATIONS POUR COLLECTION === */
+.user-cocktail-card-main {
+  animation: slideInUp 0.4s ease-out;
+}
+
+.user-cocktail-card-main:nth-child(1) { animation-delay: 0.1s; }
+.user-cocktail-card-main:nth-child(2) { animation-delay: 0.2s; }
+.user-cocktail-card-main:nth-child(3) { animation-delay: 0.3s; }
+.user-cocktail-card-main:nth-child(4) { animation-delay: 0.4s; }
+.user-cocktail-card-main:nth-child(5) { animation-delay: 0.5s; }
+.user-cocktail-card-main:nth-child(6) { animation-delay: 0.6s; }
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

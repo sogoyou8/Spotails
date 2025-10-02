@@ -132,6 +132,9 @@ const AdminDashboard = () => {
               <span>Cocktails en favoris</span>
             </div>
           </div>
+          <Link to="/admin/favorites" className="stat-link">
+            Voir <i className="bi bi-arrow-right"></i>
+          </Link>
         </div>
 
         <div className="stat-card playlists">
@@ -145,6 +148,9 @@ const AdminDashboard = () => {
               <span>Créées par les utilisateurs</span>
             </div>
           </div>
+          <Link to="/admin/playlists" className="stat-link">
+            Voir <i className="bi bi-arrow-right"></i>
+          </Link>
         </div>
       </div>
 

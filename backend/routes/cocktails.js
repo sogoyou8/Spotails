@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Cocktail = require("../models/Cocktail");
 const Ingredient = require("../models/Ingredient");
-const verifyAdmin = require('../middleware/verifyAdmin');
+const verifyAdmin = require("../middleware/verifyAdmin");
 const verifyToken = require('../middleware/verifyToken');
 const multer = require("multer");
 const path = require("path");
@@ -365,5 +365,273 @@ router.patch("/:id/publish", verifyAdmin, async (req, res) => {
     }
 });
 
+// Top 20 cocktails les plus ajoutés en favoris (admin)
+router.get("/admin/favorites-summary", verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const top = await User.aggregate([
+      { $unwind: '$favorites' },
+      { $project: { fav: { $toObjectId: '$favorites' } } }, // cast string -> ObjectId
+      { $group: { _id: '$fav', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 20 },
+      { $lookup: { from: 'cocktails', localField: '_id', foreignField: '_id', as: 'cocktail' } },
+      { $unwind: '$cocktail' },
+      { $project: { _id: 0, cocktailId: '$cocktail._id', name: '$cocktail.name', theme: '$cocktail.theme', image: '$cocktail.image', color: '$cocktail.color', count: 1 } }
+    ]);
+    res.json({ data: top });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur agrégat favoris", error: e.message });
+  }
+});
+
+// Cocktails avec peu d'engagement (0 favoris, anciens)
+router.get("/admin/low-engagement", verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    // Trouver cocktails avec 0 favoris et > 7 jours d'ancienneté
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    const favoritedIds = await User.aggregate([
+      { $unwind: '$favorites' },
+      { $group: { _id: '$favorites' } }
+    ]).then(res => res.map(r => r._id));
+    
+    const lowEngagement = await Cocktail.find({
+      _id: { $nin: favoritedIds },
+      createdAt: { $lt: weekAgo },
+      publish: true
+    }).limit(20);
+    
+    const enriched = lowEngagement.map(c => ({
+      ...c.toObject(),
+      daysSinceCreated: Math.floor((Date.now() - c.createdAt) / (1000 * 60 * 60 * 24))
+    }));
+    
+    res.json({ data: enriched });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur low-engagement", error: e.message });
+  }
+});
+
+// Featured cocktails toggle
+router.patch("/:id/featured", verifyAdmin, async (req, res) => {
+  try {
+    const cocktail = await Cocktail.findById(req.params.id);
+    if (!cocktail) return res.status(404).json({ message: "Cocktail introuvable" });
+    
+    cocktail.featured = req.body.featured;
+    await cocktail.save();
+    res.json(cocktail);
+  } catch (e) {
+    res.status(500).json({ message: "Erreur featured toggle", error: e.message });
+  }
+});
+
+// Analytics par thème optimisé
+router.get("/admin/favorites-by-theme", verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    const themeStats = await User.aggregate([
+      { $unwind: '$favorites' },
+      { $addFields: { favObjectId: { $toObjectId: '$favorites' } } },
+      { $lookup: { 
+        from: 'cocktails', 
+        localField: 'favObjectId', 
+        foreignField: '_id', 
+        as: 'cocktail' 
+      }},
+      { $unwind: '$cocktail' },
+      { $group: {
+        _id: '$cocktail.theme',
+        totalFavorites: { $sum: 1 },
+        cocktails: { $addToSet: '$cocktail._id' },
+        color: { $first: '$cocktail.color' }
+      }},
+      { $addFields: {
+        cocktailCount: { $size: '$cocktails' },
+        avgFavoritesPerCocktail: { $divide: ['$totalFavorites', { $size: '$cocktails' }] }
+      }},
+      { $sort: { totalFavorites: -1 } },
+      { $limit: 8 }, // Limite pour ne pas surcharger
+      { $project: {
+        _id: 1,
+        totalFavorites: 1,
+        cocktailCount: 1,
+        avgFavoritesPerCocktail: { $round: ['$avgFavoritesPerCocktail', 1] },
+        color: 1
+      }}
+    ]);
+    
+    res.json({ data: themeStats });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur stats par thème", error: e.message });
+  }
+});
+
+// Favoris summary optimisé
+router.get("/admin/favorites-summary", verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    const topCocktails = await User.aggregate([
+      { $unwind: '$favorites' },
+      { $group: { _id: '$favorites', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }, // Limite pour performance
+      { $lookup: {
+        from: 'cocktails',
+        let: { cocktailId: { $toObjectId: '$_id' } },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$cocktailId'] } } },
+          { $project: { name: 1, theme: 1, color: 1, thumbnail: 1 } }
+        ],
+        as: 'cocktailData'
+      }},
+      { $unwind: '$cocktailData' },
+      { $project: {
+        cocktailId: '$_id',
+        count: 1,
+        name: '$cocktailData.name',
+        theme: '$cocktailData.theme',
+        color: '$cocktailData.color',
+        image: '$cocktailData.thumbnail'
+      }}
+    ]);
+
+    res.json({ data: topCocktails });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur favoris summary", error: e.message });
+  }
+});
+
+// Détails des utilisateurs qui ont mis un cocktail en favori
+router.get("/admin/:cocktailId/favorites-detail", verifyAdmin, async (req, res) => {
+  try {
+    const { cocktailId } = req.params;
+    const User = require('../models/User');
+    
+    // Trouver tous les utilisateurs qui ont ce cocktail en favori
+    const usersWithFavorite = await User.find(
+      { favorites: cocktailId },
+      { username: 1, email: 1, createdAt: 1, favorites: 1, role: 1 }
+    ).sort({ createdAt: -1 });
+    
+    // Enrichir avec des stats sur chaque utilisateur
+    const enrichedUsers = usersWithFavorite.map(user => ({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      createdAt: user.createdAt,
+      role: user.role || 'user',
+      totalFavorites: user.favorites ? user.favorites.length : 0,
+      // Calculer depuis quand l'utilisateur a ce favori (approximation)
+      favoriteAddedAt: user.createdAt // Approximation, idéalement on stockerait la date d'ajout
+    }));
+
+    res.json({ 
+      success: true,
+      users: enrichedUsers,
+      total: enrichedUsers.length
+    });
+  } catch (e) {
+    console.error('Erreur détails favoris:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors de la récupération des détails favoris", 
+      error: e.message 
+    });
+  }
+});
+
+// Recommander un cocktail à des utilisateurs spécifiques (notifications futures)
+router.post("/admin/:cocktailId/promote-to-users", verifyAdmin, async (req, res) => {
+  try {
+    const { cocktailId } = req.params;
+    const { userIds, message } = req.body;
+    
+    // Pour l'instant, on simule l'envoi de notifications
+    // Dans une vraie app, ici on enverrait des emails ou push notifications
+    
+    const User = require('../models/User');
+    const cocktail = await Cocktail.findById(cocktailId);
+    
+    if (!cocktail) {
+      return res.status(404).json({ message: "Cocktail introuvable" });
+    }
+    
+    const targetUsers = await User.find({ _id: { $in: userIds } });
+    
+    // Log de l'action (pour traçabilité)
+    console.log(`📧 Promotion du cocktail "${cocktail.name}" vers ${targetUsers.length} utilisateurs:`, {
+      cocktailId,
+      targetUsers: targetUsers.map(u => ({ id: u._id, username: u.username })),
+      message: message || `Découvrez notre cocktail ${cocktail.name} !`
+    });
+    
+    res.json({ 
+      message: `Cocktail promu auprès de ${targetUsers.length} utilisateur(s)`,
+      targetUsers: targetUsers.length,
+      cocktailName: cocktail.name
+    });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur promotion", error: e.message });
+  }
+});
+
+// Route pour l'édition d'un cocktail (si elle n'existe pas)
+router.get('/edit/:id', verifyAdmin, async (req, res) => {
+  try {
+    const cocktail = await Cocktail.findById(req.params.id);
+    if (!cocktail) {
+      return res.status(404).json({ message: 'Cocktail introuvable' });
+    }
+    res.json(cocktail);
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+});
+
+// NOUVEAU - Favoris récents (7 derniers jours)
+router.get("/admin/recent-favorites", verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    const recentActivity = await User.aggregate([
+      { $match: { favorites: { $exists: true, $not: { $size: 0 } } } },
+      { $unwind: '$favorites' },
+      { $lookup: {
+        from: 'cocktails',
+        localField: 'favorites',
+        foreignField: '_id',
+        as: 'cocktailData'
+      }},
+      { $unwind: '$cocktailData' },
+      { $match: { 
+        'cocktailData.publish': true,
+        updatedAt: { $gte: sevenDaysAgo }
+      }},
+      { $project: {
+        cocktailId: '$cocktailData._id',
+        cocktailName: '$cocktailData.name',
+        cocktailImage: '$cocktailData.image',
+        theme: '$cocktailData.theme',
+        color: '$cocktailData.color',
+        username: 1,
+        addedAt: '$updatedAt'
+      }},
+      { $sort: { addedAt: -1 } },
+      { $limit: 20 }
+    ]);
+    
+    res.json({ data: recentActivity });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur favoris récents", error: e.message });
+  }
+});
 
 module.exports = router;
