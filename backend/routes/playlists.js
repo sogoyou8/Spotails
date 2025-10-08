@@ -302,20 +302,32 @@ router.get('/admin/:playlistId/tracks', verifyAdmin, async (req, res) => {
   try {
     const playlist = await Playlist.findById(req.params.playlistId).lean();
     if (!playlist) {
-      return res.status(404).json({ success: false, message: 'Playlist introuvable' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Playlist introuvable' 
+      });
     }
 
-    // ✅ STRUCTURE COMPLÈTE POUR LE FRONTEND
+    // ✅ Récupérer les infos utilisateur
+    const User = require('../models/User');
+    const user = await User.findById(playlist.userId).select('username email').lean();
+
+    // ✅ STRUCTURE ENRICHIE pour le frontend
     res.json({
       success: true,
       playlist: {
         _id: playlist._id,
         name: playlist.name,
-        username: playlist.username,
-        tracks: playlist.tracks || [], // ← CRITIQUE : doit être un array
+        username: user?.username || 'Utilisateur supprimé',
+        userEmail: user?.email || null,
+        tracks: playlist.tracks || [],
         createdAt: playlist.createdAt,
         updatedAt: playlist.updatedAt,
-        coverIndex: playlist.coverIndex ?? 0
+        coverIndex: playlist.coverIndex ?? 0,
+        trackCount: (playlist.tracks || []).length,
+        totalDuration: (playlist.tracks || []).reduce((sum, t) => 
+          sum + (t.duration_ms || t.durationMs || 0), 0
+        )
       }
     });
   } catch (e) {
@@ -360,203 +372,104 @@ router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
 router.get('/admin/stats', verifyAdmin, async (req, res) => {
   try {
     const totalPlaylists = await Playlist.countDocuments();
+    const emptyPlaylists = await Playlist.countDocuments({
+      $or: [
+        { tracks: { $exists: false } },
+        { tracks: { $size: 0 } }
+      ]
+    });
     
     const statsAgg = await Playlist.aggregate([
       {
+        $project: {
+          trackCount: { $size: { $ifNull: ["$tracks", []] } },
+          totalDuration: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$tracks", []] },
+                as: "track",
+                in: { $ifNull: ["$$track.duration_ms", "$$track.durationMs", 0] }
+              }
+            }
+          }
+        }
+      },
+      {
         $group: {
           _id: null,
-          totalTracks: { $sum: { $size: { $ifNull: ["$tracks", []] } } },
-          avgTracksPerPlaylist: { $avg: { $size: { $ifNull: ["$tracks", []] } } }
+          totalTracks: { $sum: "$trackCount" },
+          avgTracksPerPlaylist: { $avg: "$trackCount" }
         }
       }
     ]);
     
-    const activeCreators = await Playlist.distinct('userId').length;
-    
+    const activeCreators = await Playlist.distinct('userId');
     const stats = statsAgg[0] || { totalTracks: 0, avgTracksPerPlaylist: 0 };
     
     res.json({
       total: totalPlaylists,
+      empty: emptyPlaylists,
+      filled: totalPlaylists - emptyPlaylists,
       totalTracks: stats.totalTracks,
       avgTracksPerPlaylist: stats.avgTracksPerPlaylist || 0,
-      activeCreators: activeCreators
+      activeCreators: activeCreators.length
     });
   } catch (e) {
+    console.error('Erreur stats:', e);
     res.status(500).json({ message: "Erreur stats playlists", error: e.message });
   }
 });
 
-// NOUVEAU - Top playlists (les plus riches en morceaux)
-router.get('/admin/top-playlists', verifyAdmin, async (req, res) => {
+// Playlists d'un utilisateur spécifique (pour admin)
+router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
   try {
-    const User = require('../models/User');
+    const { userId } = req.params;
     
-    const topPlaylists = await Playlist.aggregate([
-      { $addFields: { trackCount: { $size: { $ifNull: ["$tracks", []] } } } },
-      { $sort: { trackCount: -1, updatedAt: -1 } },
-      { $limit: 10 },
-      { $lookup: {
-        from: 'users',
-        localField: 'userId',
-        foreignField: '_id',
-        as: 'userInfo'
-      }},
-      { $addFields: {
-        username: { $arrayElemAt: ['$userInfo.username', 0] }
-      }},
-      { $project: {
-        name: 1,
-        tracks: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        username: 1,
-        trackCount: 1
-      }}
-    ]);
+    const playlists = await Playlist.find({ userId })
+      .sort({ updatedAt: -1 })
+      .select('name tracks createdAt updatedAt');
     
-    res.json({ data: topPlaylists });
+    const user = await User.findById(userId).select('username email createdAt');
+    
+    res.json({
+      success: true,
+      playlists,
+      user,
+      total: playlists.length
+    });
   } catch (e) {
-    res.status(500).json({ message: "Erreur top playlists", error: e.message });
+    res.status(500).json({
+      success: false,
+      message: 'Erreur récupération playlists utilisateur',
+      error: e.message
+    });
   }
 });
 
-// NOUVEAU - Playlists récentes (7 derniers jours)
-router.get('/admin/recent', verifyAdmin, async (req, res) => {
-  try {
-    const User = require('../models/User');
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    
-    const recentPlaylists = await Playlist.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo } } },
-      { $sort: { createdAt: -1 } },
-      { $limit: 20 },
-      { $lookup: {
-        from: 'users',
-        localField: 'userId',
-        foreignField: '_id',
-        as: 'userInfo'
-      }},
-      { $addFields: {
-        username: { $arrayElemAt: ['$userInfo.username', 0] }
-      }},
-      { $project: {
-        name: 1,
-        tracks: 1,
-        createdAt: 1,
-        username: 1
-      }}
-    ]);
-    
-    res.json({ data: recentPlaylists });
-  } catch (e) {
-    res.status(500).json({ message: "Erreur playlists récentes", error: e.message });
-  }
-});
-
-// NOUVEAU - Top créateurs de playlists
-router.get('/admin/top-creators', verifyAdmin, async (req, res) => {
-  try {
-    const User = require('../models/User');
-    
-    const topCreators = await Playlist.aggregate([
-      { $group: {
-        _id: '$userId',
-        playlistCount: { $sum: 1 },
-        totalTracks: { $sum: { $size: { $ifNull: ["$tracks", []] } } },
-        lastActivity: { $max: '$updatedAt' }
-      }},
-      { $sort: { playlistCount: -1, totalTracks: -1 } },
-      { $limit: 10 },
-      { $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'userInfo'
-      }},
-      { $addFields: {
-        username: { $arrayElemAt: ['$userInfo.username', 0] },
-        role: { $arrayElemAt: ['$userInfo.role', 0] },
-        createdAt: { $arrayElemAt: ['$userInfo.createdAt', 0] }
-      }},
-      { $project: {
-        username: 1,
-        role: 1,
-        createdAt: 1,
-        playlistCount: 1,
-        totalTracks: 1,
-        lastActivity: 1
-      }}
-    ]);
-    
-    res.json({ data: topCreators });
-  } catch (e) {
-    res.status(500).json({ message: "Erreur top créateurs", error: e.message });
-  }
-});
-
-// NOUVEAU - Playlists flaggées pour modération
-router.get('/admin/flagged', verifyAdmin, async (req, res) => {
-  try {
-    const User = require('../models/User');
-    
-    // Noms suspects à détecter
-    const suspiciousPatterns = [
-      /^playlist\s*\d*$/i,
-      /^ma\s*playlist$/i,
-      /^nouvelle\s*playlist$/i,
-      /^sans\s*titre$/i,
-      /^untitled$/i,
-      /^new\s*playlist$/i,
-      /^playlist\s*name$/i,
-      /^test$/i,
-      /^\s*$/
-    ];
-    
-    const allPlaylists = await Playlist.aggregate([
-      { $lookup: {
-        from: 'users',
-        localField: 'userId',
-        foreignField: '_id',
-        as: 'userInfo'
-      }},
-      { $addFields: {
-        username: { $arrayElemAt: ['$userInfo.username', 0] }
-      }},
-      { $project: {
-        name: 1,
-        tracks: 1,
-        createdAt: 1,
-        username: 1
-      }}
-    ]);
-    
-    // Filtrer les playlists suspectes
-    const flaggedPlaylists = allPlaylists.filter(playlist => {
-      return suspiciousPatterns.some(pattern => pattern.test(playlist.name));
-    }).map(playlist => ({
-      ...playlist,
-      flagReason: 'Nom générique ou suspect'
-    }));
-    
-    res.json({ data: flaggedPlaylists });
-  } catch (e) {
-    res.status(500).json({ message: "Erreur playlists flaggées", error: e.message });
-  }
-});
-
-// NOUVEAU - Éditer les tracks d'une playlist (admin)
-router.patch('/admin/:id/tracks', verifyAdmin, async (req, res) => {
+// Supprimer une playlist (admin)
+router.delete('/admin/:id', verifyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { tracks } = req.body;
+    await Playlist.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Playlist supprimée' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Erreur suppression', error: e.message });
+  }
+});
+
+// Modifier une playlist (admin)
+router.patch('/admin/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
     
-    if (!Array.isArray(tracks)) {
-      return res.status(400).json({ message: 'Tracks doit être un tableau' });
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Nom requis' });
     }
     
     const playlist = await Playlist.findByIdAndUpdate(
       id,
-      { tracks: tracks },
+      { name: name.trim() },
       { new: true }
     );
     
@@ -566,7 +479,996 @@ router.patch('/admin/:id/tracks', verifyAdmin, async (req, res) => {
     
     res.json({ success: true, playlist });
   } catch (e) {
-    res.status(500).json({ success: false, message: 'Erreur modification tracks', error: e.message });
+    res.status(500).json({ success: false, message: 'Erreur modification', error: e.message });
+  }
+});
+
+// NOUVEAU - Récupérer les tracks d'une playlist pour admin
+router.get('/admin/:playlistId/tracks', verifyAdmin, async (req, res) => {
+  try {
+    const playlist = await Playlist.findById(req.params.playlistId).lean();
+    if (!playlist) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Playlist introuvable' 
+      });
+    }
+
+    // ✅ Récupérer les infos utilisateur
+    const User = require('../models/User');
+    const user = await User.findById(playlist.userId).select('username email').lean();
+
+    // ✅ STRUCTURE ENRICHIE pour le frontend
+    res.json({
+      success: true,
+      playlist: {
+        _id: playlist._id,
+        name: playlist.name,
+        username: user?.username || 'Utilisateur supprimé',
+        userEmail: user?.email || null,
+        tracks: playlist.tracks || [],
+        createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
+        coverIndex: playlist.coverIndex ?? 0,
+        trackCount: (playlist.tracks || []).length,
+        totalDuration: (playlist.tracks || []).reduce((sum, t) => 
+          sum + (t.duration_ms || t.durationMs || 0), 0
+        )
+      }
+    });
+  } catch (e) {
+    console.error('Erreur GET /admin/:playlistId/tracks:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur', 
+      error: e.message 
+    });
+  }
+});
+
+// NOUVEAU - Récupérer toutes les playlists d'un utilisateur pour admin
+router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+    
+    const playlists = await Playlist.find({ userId: req.params.userId })
+      .sort({ createdAt: -1 })
+      .select('name tracks createdAt flagReason');
+    
+    res.json({ 
+      success: true,
+      playlists: playlists,
+      username: user.username,
+      totalPlaylists: playlists.length
+    });
+  } catch (e) {
+    res.status(500).json({ 
+      success: false,
+      message: "Erreur lors de la récupération des playlists utilisateur", 
+      error: e.message 
+    });
+  }
+});
+
+// NOUVEAU - Analytics des playlists pour admin
+router.get('/admin/stats', verifyAdmin, async (req, res) => {
+  try {
+    const totalPlaylists = await Playlist.countDocuments();
+    const emptyPlaylists = await Playlist.countDocuments({
+      $or: [
+        { tracks: { $exists: false } },
+        { tracks: { $size: 0 } }
+      ]
+    });
+    
+    const statsAgg = await Playlist.aggregate([
+      {
+        $project: {
+          trackCount: { $size: { $ifNull: ["$tracks", []] } },
+          totalDuration: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$tracks", []] },
+                as: "track",
+                in: { $ifNull: ["$$track.duration_ms", "$$track.durationMs", 0] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalTracks: { $sum: "$trackCount" },
+          avgTracksPerPlaylist: { $avg: "$trackCount" }
+        }
+      }
+    ]);
+    
+    const activeCreators = await Playlist.distinct('userId');
+    const stats = statsAgg[0] || { totalTracks: 0, avgTracksPerPlaylist: 0 };
+    
+    res.json({
+      total: totalPlaylists,
+      empty: emptyPlaylists,
+      filled: totalPlaylists - emptyPlaylists,
+      totalTracks: stats.totalTracks,
+      avgTracksPerPlaylist: stats.avgTracksPerPlaylist || 0,
+      activeCreators: activeCreators.length
+    });
+  } catch (e) {
+    console.error('Erreur stats:', e);
+    res.status(500).json({ message: "Erreur stats playlists", error: e.message });
+  }
+});
+
+// Playlists d'un utilisateur spécifique (pour admin)
+router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const playlists = await Playlist.find({ userId })
+      .sort({ updatedAt: -1 })
+      .select('name tracks createdAt updatedAt');
+    
+    const user = await User.findById(userId).select('username email createdAt');
+    
+    res.json({
+      success: true,
+      playlists,
+      user,
+      total: playlists.length
+    });
+  } catch (e) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur récupération playlists utilisateur',
+      error: e.message
+    });
+  }
+});
+
+// Supprimer une playlist (admin)
+router.delete('/admin/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Playlist.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Playlist supprimée' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Erreur suppression', error: e.message });
+  }
+});
+
+// Modifier une playlist (admin)
+router.patch('/admin/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Nom requis' });
+    }
+    
+    const playlist = await Playlist.findByIdAndUpdate(
+      id,
+      { name: name.trim() },
+      { new: true }
+    );
+    
+    if (!playlist) {
+      return res.status(404).json({ message: 'Playlist introuvable' });
+    }
+    
+    res.json({ success: true, playlist });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Erreur modification', error: e.message });
+  }
+});
+
+// NOUVEAU - Récupérer les tracks d'une playlist pour admin
+router.get('/admin/:playlistId/tracks', verifyAdmin, async (req, res) => {
+  try {
+    const playlist = await Playlist.findById(req.params.playlistId).lean();
+    if (!playlist) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Playlist introuvable' 
+      });
+    }
+
+    // ✅ Récupérer les infos utilisateur
+    const User = require('../models/User');
+    const user = await User.findById(playlist.userId).select('username email').lean();
+
+    // ✅ STRUCTURE ENRICHIE pour le frontend
+    res.json({
+      success: true,
+      playlist: {
+        _id: playlist._id,
+        name: playlist.name,
+        username: user?.username || 'Utilisateur supprimé',
+        userEmail: user?.email || null,
+        tracks: playlist.tracks || [],
+        createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
+        coverIndex: playlist.coverIndex ?? 0,
+        trackCount: (playlist.tracks || []).length,
+        totalDuration: (playlist.tracks || []).reduce((sum, t) => 
+          sum + (t.duration_ms || t.durationMs || 0), 0
+        )
+      }
+    });
+  } catch (e) {
+    console.error('Erreur GET /admin/:playlistId/tracks:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur', 
+      error: e.message 
+    });
+  }
+});
+
+// NOUVEAU - Récupérer toutes les playlists d'un utilisateur pour admin
+router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+    
+    const playlists = await Playlist.find({ userId: req.params.userId })
+      .sort({ createdAt: -1 })
+      .select('name tracks createdAt flagReason');
+    
+    res.json({ 
+      success: true,
+      playlists: playlists,
+      username: user.username,
+      totalPlaylists: playlists.length
+    });
+  } catch (e) {
+    res.status(500).json({ 
+      success: false,
+      message: "Erreur lors de la récupération des playlists utilisateur", 
+      error: e.message 
+    });
+  }
+});
+
+// NOUVEAU - Analytics des playlists pour admin
+router.get('/admin/stats', verifyAdmin, async (req, res) => {
+  try {
+    const totalPlaylists = await Playlist.countDocuments();
+    const emptyPlaylists = await Playlist.countDocuments({
+      $or: [
+        { tracks: { $exists: false } },
+        { tracks: { $size: 0 } }
+      ]
+    });
+    
+    const statsAgg = await Playlist.aggregate([
+      {
+        $project: {
+          trackCount: { $size: { $ifNull: ["$tracks", []] } },
+          totalDuration: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$tracks", []] },
+                as: "track",
+                in: { $ifNull: ["$$track.duration_ms", "$$track.durationMs", 0] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalTracks: { $sum: "$trackCount" },
+          avgTracksPerPlaylist: { $avg: "$trackCount" }
+        }
+      }
+    ]);
+    
+    const activeCreators = await Playlist.distinct('userId');
+    const stats = statsAgg[0] || { totalTracks: 0, avgTracksPerPlaylist: 0 };
+    
+    res.json({
+      total: totalPlaylists,
+      empty: emptyPlaylists,
+      filled: totalPlaylists - emptyPlaylists,
+      totalTracks: stats.totalTracks,
+      avgTracksPerPlaylist: stats.avgTracksPerPlaylist || 0,
+      activeCreators: activeCreators.length
+    });
+  } catch (e) {
+    console.error('Erreur stats:', e);
+    res.status(500).json({ message: "Erreur stats playlists", error: e.message });
+  }
+});
+
+// Top playlists (par nombre de morceaux et récence)
+router.get('/admin/top-playlists', verifyAdmin, async (req, res) => {
+  try {
+    const topPlaylists = await Playlist.aggregate([
+      { $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'user'
+      }},
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $addFields: {
+        trackCount: { $size: { $ifNull: ['$tracks', []] } },
+        username: '$user.username'
+      }},
+      { $sort: { trackCount: -1, updatedAt: -1 } },
+      { $limit: 20 },
+      { $project: {
+        name: 1,
+        tracks: 1,
+        trackCount: 1,
+        username: 1,
+        createdAt: 1,
+        updatedAt: 1
+      }}
+    ]);
+    
+    res.json({ data: topPlaylists });
+  } catch (e) {
+    res.status(500).json({ message: 'Erreur top playlists', error: e.message });
+  }
+});
+
+// Playlists récentes (7 derniers jours)
+router.get('/admin/recent', verifyAdmin, async (req, res) => {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    const recentPlaylists = await Playlist.aggregate([
+      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      { $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'user'
+      }},
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $addFields: {
+        username: '$user.username'
+      }},
+      { $sort: { createdAt: -1 } },
+      { $limit: 20 },
+      { $project: {
+        name: 1,
+        tracks: 1,
+        username: 1,
+        createdAt: 1
+      }}
+    ]);
+    
+    res.json({ data: recentPlaylists });
+  } catch (e) {
+    res.status(500).json({ message: 'Erreur playlists récentes', error: e.message });
+  }
+});
+
+// Top créateurs (utilisateurs avec le plus de playlists)
+router.get('/admin/top-creators', verifyAdmin, async (req, res) => {
+  try {
+    const topCreators = await Playlist.aggregate([
+      { $group: {
+        _id: '$userId',
+        playlistCount: { $sum: 1 },
+        totalTracks: { $sum: { $size: { $ifNull: ['$tracks', []] } } },
+        lastActivity: { $max: '$updatedAt' }
+      }},
+      { $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'user'
+      }},
+      { $unwind: '$user' },
+      { $project: {
+        _id: '$user._id',
+        username: '$user.username',
+        email: '$user.email',
+        role: '$user.role',
+        createdAt: '$user.createdAt',
+        playlistCount: 1,
+        totalTracks: 1,
+        lastActivity: 1
+      }},
+      { $sort: { playlistCount: -1, totalTracks: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    res.json({ data: topCreators });
+  } catch (e) {
+    res.status(500).json({ message: 'Erreur top créateurs', error: e.message });
+  }
+});
+
+// Stats améliorées
+router.get('/admin/stats', verifyAdmin, async (req, res) => {
+  try {
+    const [totalPlaylists, totalTracks, avgTracks, activeCreators] = await Promise.all([
+      Playlist.countDocuments(),
+      Playlist.aggregate([
+        { $project: { trackCount: { $size: { $ifNull: ['$tracks', []] } } } },
+        { $group: { _id: null, total: { $sum: '$trackCount' } } }
+      ]),
+      Playlist.aggregate([
+        { $project: { trackCount: { $size: { $ifNull: ['$tracks', []] } } } },
+        { $group: { _id: null, avg: { $avg: '$trackCount' } } }
+      ]),
+      Playlist.distinct('userId').then(ids => ids.length)
+    ]);
+    
+    res.json({
+      total: totalPlaylists,
+      totalTracks: totalTracks[0]?.total || 0,
+      avgTracksPerPlaylist: avgTracks[0]?.avg || 0,
+      activeCreators
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Erreur stats playlists', error: e.message });
+  }
+});
+
+// Playlists d'un utilisateur spécifique (pour admin)
+router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const playlists = await Playlist.find({ userId })
+      .sort({ updatedAt: -1 })
+      .select('name tracks createdAt updatedAt');
+    
+    const user = await User.findById(userId).select('username email createdAt');
+    
+    res.json({
+      success: true,
+      playlists,
+      user,
+      total: playlists.length
+    });
+  } catch (e) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur récupération playlists utilisateur',
+      error: e.message
+    });
+  }
+});
+
+// Supprimer une playlist (admin)
+router.delete('/admin/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Playlist.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Playlist supprimée' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Erreur suppression', error: e.message });
+  }
+});
+
+// Modifier une playlist (admin)
+router.patch('/admin/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Nom requis' });
+    }
+    
+    const playlist = await Playlist.findByIdAndUpdate(
+      id,
+      { name: name.trim() },
+      { new: true }
+    );
+    
+    if (!playlist) {
+      return res.status(404).json({ message: 'Playlist introuvable' });
+    }
+    
+    res.json({ success: true, playlist });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Erreur modification', error: e.message });
+  }
+});
+
+// NOUVEAU - Récupérer les tracks d'une playlist pour admin
+router.get('/admin/:playlistId/tracks', verifyAdmin, async (req, res) => {
+  try {
+    const playlist = await Playlist.findById(req.params.playlistId).lean();
+    if (!playlist) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Playlist introuvable' 
+      });
+    }
+
+    // ✅ Récupérer les infos utilisateur
+    const User = require('../models/User');
+    const user = await User.findById(playlist.userId).select('username email').lean();
+
+    // ✅ STRUCTURE ENRICHIE pour le frontend
+    res.json({
+      success: true,
+      playlist: {
+        _id: playlist._id,
+        name: playlist.name,
+        username: user?.username || 'Utilisateur supprimé',
+        userEmail: user?.email || null,
+        tracks: playlist.tracks || [],
+        createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
+        coverIndex: playlist.coverIndex ?? 0,
+        trackCount: (playlist.tracks || []).length,
+        totalDuration: (playlist.tracks || []).reduce((sum, t) => 
+          sum + (t.duration_ms || t.durationMs || 0), 0
+        )
+      }
+    });
+  } catch (e) {
+    console.error('Erreur GET /admin/:playlistId/tracks:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur', 
+      error: e.message 
+    });
+  }
+});
+
+// NOUVEAU - Récupérer toutes les playlists d'un utilisateur pour admin
+router.get('/admin/user/:userId', verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+    
+    const playlists = await Playlist.find({ userId: req.params.userId })
+      .sort({ createdAt: -1 })
+      .select('name tracks createdAt flagReason');
+    
+    res.json({ 
+      success: true,
+      playlists: playlists,
+      username: user.username,
+      totalPlaylists: playlists.length
+    });
+  } catch (e) {
+    res.status(500).json({ 
+      success: false,
+      message: "Erreur lors de la récupération des playlists utilisateur", 
+      error: e.message 
+    });
+  }
+});
+
+// NOUVEAU - Analytics des playlists pour admin
+router.get('/admin/stats', verifyAdmin, async (req, res) => {
+  try {
+    const totalPlaylists = await Playlist.countDocuments();
+    const emptyPlaylists = await Playlist.countDocuments({
+      $or: [
+        { tracks: { $exists: false } },
+        { tracks: { $size: 0 } }
+      ]
+    });
+    
+    const statsAgg = await Playlist.aggregate([
+      {
+        $project: {
+          trackCount: { $size: { $ifNull: ["$tracks", []] } },
+          totalDuration: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$tracks", []] },
+                as: "track",
+                in: { $ifNull: ["$$track.duration_ms", "$$track.durationMs", 0] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalTracks: { $sum: "$trackCount" },
+          avgTracksPerPlaylist: { $avg: "$trackCount" }
+        }
+      }
+    ]);
+    
+    const activeCreators = await Playlist.distinct('userId');
+    const stats = statsAgg[0] || { totalTracks: 0, avgTracksPerPlaylist: 0 };
+    
+    res.json({
+      total: totalPlaylists,
+      empty: emptyPlaylists,
+      filled: totalPlaylists - emptyPlaylists,
+      totalTracks: stats.totalTracks,
+      avgTracksPerPlaylist: stats.avgTracksPerPlaylist || 0,
+      activeCreators: activeCreators.length
+    });
+  } catch (e) {
+    console.error('Erreur stats:', e);
+    res.status(500).json({ message: "Erreur stats playlists", error: e.message });
+  }
+});
+
+// ✅ TOP PLAYLISTS - AVEC USERNAME ET DURÉE
+router.get('/admin/top', verifyAdmin, async (req, res) => {
+  try {
+    const topPlaylists = await Playlist.aggregate([
+      {
+        $addFields: {
+          trackCount: { $size: { $ifNull: ["$tracks", []] } }
+        }
+      },
+      { $sort: { trackCount: -1, updatedAt: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $addFields: {
+          username: { $arrayElemAt: ['$userInfo.username', 0] }
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          tracks: 1,
+          username: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          trackCount: 1
+        }
+      }
+    ]);
+    
+    res.json({ data: topPlaylists });
+  } catch (e) {
+    console.error('Erreur top playlists:', e);
+    res.status(500).json({ message: "Erreur", error: e.message });
+  }
+});
+
+// ✅ ACTIVITÉ RÉCENTE - AVEC USERNAME ET DURÉE
+router.get('/admin/recent-activity', verifyAdmin, async (req, res) => {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    const recentPlaylists = await Playlist.aggregate([
+      { $match: { updatedAt: { $gte: sevenDaysAgo } } },
+      { $sort: { updatedAt: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $addFields: {
+          username: { $arrayElemAt: ['$userInfo.username', 0] },
+          trackCount: { $size: { $ifNull: ['$tracks', []] } }
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          tracks: 1,
+          username: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          trackCount: 1
+        }
+      }
+    ]);
+    
+    res.json(recentPlaylists);
+  } catch (e) {
+    console.error('Erreur activité récente:', e);
+    res.status(500).json({ message: "Erreur activité récente", error: e.message });
+  }
+});
+
+// ✅ MORCEAUX POPULAIRES - LIMITÉ À 5 AVEC TOUTES LES DONNÉES
+router.get('/admin/popular-tracks', verifyAdmin, async (req, res) => {
+  try {
+    const popularTracks = await Playlist.aggregate([
+      { $unwind: '$tracks' },
+      {
+        $group: {
+          _id: '$tracks.trackId',
+          trackName: { $first: { $ifNull: ['$tracks.trackName', '$tracks.name'] } },
+          name: { $first: { $ifNull: ['$tracks.name', '$tracks.trackName'] } },
+          // Gestion robuste de artistName
+          artistName: { 
+            $first: { 
+              $cond: {
+                if: { $isArray: '$tracks.artists' },
+                then: {
+                  $reduce: {
+                    input: '$tracks.artists',
+                    initialValue: '',
+                    in: {
+                      $concat: [
+                        '$$value',
+                        { $cond: [{ $eq: ['$$value', ''] }, '', ', '] },
+                        { $ifNull: ['$$this.name', { $toString: '$$this' }] }
+                      ]
+                    }
+                  }
+                },
+                else: { $ifNull: ['$tracks.artistName', 'Artiste inconnu'] }
+              }
+            }
+          },
+          artists: { $first: '$tracks.artists' },
+          albumImage: { 
+            $first: { 
+              $ifNull: [
+                '$tracks.albumImage',
+                { $arrayElemAt: ['$tracks.album.images.url', 0] }
+              ]
+            }
+          },
+          albumImages: { $first: '$tracks.album.images' },
+          previewUrl: { $first: '$tracks.previewUrl' },
+          spotifyUrl: { $first: '$tracks.spotifyUrl' },
+          duration_ms: { $first: { $ifNull: ['$tracks.duration_ms', '$tracks.durationMs', 0] } },
+          album: { $first: '$tracks.album' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }, // ✅ LIMITÉ À 5
+      {
+        $project: {
+          trackId: '$_id',
+          trackName: { $ifNull: ['$trackName', '$name', 'Titre inconnu'] },
+          name: { $ifNull: ['$name', '$trackName', 'Titre inconnu'] },
+          artistName: { $ifNull: ['$artistName', 'Artiste inconnu'] },
+          albumImage: {
+            $cond: {
+              if: { $ne: ['$albumImage', null] },
+              then: '$albumImage',
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: { $ifNull: ['$albumImages', []] } }, 0] },
+                  then: { $arrayElemAt: ['$albumImages.url', 0] },
+                  else: '/thumbnail-placeholder.jpg'
+                }
+              }
+            }
+          },
+          previewUrl: 1,
+          spotifyUrl: 1,
+          duration_ms: { $ifNull: ['$duration_ms', 0] },
+          album: { $ifNull: ['$album', { name: 'Album inconnu' }] },
+          count: 1,
+          _id: 0
+        }
+      }
+    ]);
+
+    res.json(popularTracks);
+  } catch (e) {
+    console.error('Erreur morceaux populaires:', e);
+    res.status(500).json({ message: "Erreur morceaux populaires", error: e.message });
+  }
+});
+
+// Croissance des playlists (7 derniers jours)
+router.get('/admin/growth', verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    const growth = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      const count = await Playlist.countDocuments({
+        createdAt: {
+          $gte: date,
+          $lt: nextDate
+        }
+      });
+
+      growth.push({
+        date: date.toISOString(),
+        label: date.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        count
+      });
+    }
+
+    res.json(growth);
+  } catch (e) {
+    console.error('Erreur growth:', e);
+    res.status(500).json({ message: 'Erreur growth', error: e.message });
+  }
+});
+
+// NOUVEAU - Playlists contenant un track spécifique
+router.get('/admin/track/:trackId', verifyAdmin, async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    
+    const playlists = await Playlist.find({
+      'tracks.trackId': trackId
+    }).lean();
+    
+    // Enrichir avec les usernames
+    const enriched = await Promise.all(playlists.map(async (pl) => {
+      const user = await User.findById(pl.userId).select('username');
+      return {
+        ...pl,
+        username: user?.username || 'Anonyme'
+      };
+    }));
+    
+    res.json({ 
+      success: true, 
+      playlists: enriched 
+    });
+  } catch (e) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors de la recherche des playlists', 
+      error: e.message 
+    });
+  }
+});
+
+// Top créateurs
+router.get('/admin/by-creator', verifyAdmin, async (req, res) => {
+  try {
+    const topCreators = await Playlist.aggregate([
+      {
+        $group: {
+          _id: '$userId',
+          playlistCount: { $sum: 1 },
+          totalTracks: { $sum: { $size: { $ifNull: ["$tracks", []] } } },
+          lastActivity: { $max: '$updatedAt' }
+        }
+      },
+      { $sort: { playlistCount: -1, totalTracks: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $addFields: {
+          username: { $arrayElemAt: ['$userInfo.username', 0] },
+          role: { $arrayElemAt: ['$userInfo.role', 0] },
+          createdAt: { $arrayElemAt: ['$userInfo.createdAt', 0] }
+        }
+      },
+      {
+        $project: {
+          username: 1,
+          role: 1,
+          createdAt: 1,
+          playlistCount: 1,
+          totalTracks: 1,
+          lastActivity: 1
+        }
+      }
+    ]);
+    
+    res.json(topCreators);
+  } catch (e) {
+    console.error('Erreur top créateurs:', e);
+    res.status(500).json({ message: "Erreur top créateurs", error: e.message });
+  }
+});
+
+// Playlists vides
+router.get('/admin/empty', verifyAdmin, async (req, res) => {
+  try {
+    const emptyPlaylists = await Playlist.aggregate([
+      { 
+        $match: { 
+          $or: [
+            { tracks: { $exists: false } },
+            { tracks: { $size: 0 } }
+          ]
+        }
+      },
+      { $limit: 50 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $addFields: {
+          username: { $arrayElemAt: ['$userInfo.username', 0] }
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          tracks: 1,
+          username: 1,
+          createdAt: 1
+        }
+      }
+    ]);
+    
+    res.json(emptyPlaylists);
+  } catch (e) {
+    console.error('Erreur playlists vides:', e);
+    res.status(500).json({ message: "Erreur playlists vides", error: e.message });
+  }
+});
+
+// Croissance
+router.get('/admin/growth', verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    const growth = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      const count = await Playlist.countDocuments({
+        createdAt: {
+          $gte: date,
+          $lt: nextDate
+        }
+      });
+
+      growth.push({
+        date: date.toISOString(),
+        label: date.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        count
+      });
+    }
+
+    res.json(growth);
+  } catch (e) {
+    console.error('Erreur growth:', e);
+    res.status(500).json({ message: "Erreur growth", error: e.message });
   }
 });
 
@@ -751,6 +1653,291 @@ router.get('/admin/stats-detailed', verifyAdmin, async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ message: "Erreur stats détaillées", error: e.message });
+  }
+});
+
+// ALIAS ROUTES pour compatibilité frontend AdminPlaylistManager
+router.get('/admin/top', verifyAdmin, async (req, res) => {
+  // Alias vers /admin/top-playlists
+  try {
+    const User = require('../models/User');
+    
+    const topPlaylists = await Playlist.aggregate([
+      { $addFields: { trackCount: { $size: { $ifNull: ["$tracks", []] } } } },
+      { $sort: { trackCount: -1, updatedAt: -1 } },
+      { $limit: 10 },
+      { $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'userInfo'
+      }},
+      { $addFields: {
+        username: { $arrayElemAt: ['$userInfo.username', 0] }
+      }},
+      { $project: {
+        name: 1,
+        tracks: 1,
+        username: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        trackCount: 1
+      }}
+    ]);
+    
+    res.json({ data: topPlaylists });
+  } catch (e) {
+    res.status(500).json({ message: "Erreur", error: e.message });
+  }
+});
+
+router.get('/admin/empty', verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const emptyPlaylists = await Playlist.aggregate([
+      { $match: { 
+        $or: [
+          { tracks: { $exists: false } },
+          { tracks: { $size: 0 } }
+        ]
+      }},
+      { $limit: 50 },
+      { $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'userInfo'
+      }},
+      { $addFields: {
+        username: { $arrayElemAt: ['$userInfo.username', 0] }
+      }},
+      { $project: {
+        name: 1,
+        tracks: 1,
+        username: 1,
+        createdAt: 1
+      }}
+    ]);
+    res.json(emptyPlaylists);
+  } catch (e) {
+    res.status(500).json({ message: "Erreur playlists vides", error: e.message });
+  }
+});
+
+router.get('/admin/by-creator', verifyAdmin, async (req, res) => {
+  // Alias vers /admin/top-creators
+  try {
+    const topCreators = await Playlist.aggregate([
+      { $group: {
+        _id: '$userId',
+        playlistCount: { $sum: 1 },
+        totalTracks: { $sum: { $size: { $ifNull: ["$tracks", []] } } },
+        lastActivity: { $max: '$updatedAt' }
+      }},
+      { $sort: { playlistCount: -1, totalTracks: -1 } },
+      { $limit: 10 },
+      { $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'userInfo'
+      }},
+      { $addFields: {
+        username: { $arrayElemAt: ['$userInfo.username', 0] },
+        role: { $arrayElemAt: ['$userInfo.role', 0] },
+        createdAt: { $arrayElemAt: ['$userInfo.createdAt', 0] }
+      }},
+      { $project: {
+        username: 1,
+        role: 1,
+        createdAt: 1,
+        playlistCount: 1,
+        totalTracks: 1,
+        lastActivity: 1
+      }}
+    ]);
+    res.json(topCreators);
+  } catch (e) {
+    res.status(500).json({ message: "Erreur top créateurs", error: e.message });
+  }
+});
+
+router.get('/admin/recent-activity', verifyAdmin, async (req, res) => {
+  // Alias vers /admin/recent avec enrichissement
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentPlaylists = await Playlist.aggregate([
+      { $match: { updatedAt: { $gte: sevenDaysAgo } } },
+      { $sort: { updatedAt: -1 } },
+      { $limit: 5 },
+      { $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'userInfo'
+      }},
+      { $addFields: {
+        username: { $arrayElemAt: ['$userInfo.username', 0] },
+        trackCount: { $size: { $ifNull: ['$tracks', []] } }
+      }},
+      { $project: {
+        name: 1,
+        tracks: 1,
+        username: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        trackCount: 1
+      }}
+    ]);
+    
+    res.json(recentPlaylists);
+  } catch (e) {
+    res.status(500).json({ message: "Erreur activité récente", error: e.message });
+  }
+});
+
+// Morceaux populaires dans les playlists
+router.get('/admin/popular-tracks', verifyAdmin, async (req, res) => {
+  try {
+    const popularTracks = await Playlist.aggregate([
+      { $unwind: '$tracks' },
+      {
+        $group: {
+          _id: '$tracks.trackId',
+          trackName: { $first: '$tracks.trackName' },
+          name: { $first: { $ifNull: ['$tracks.name', '$tracks.trackName'] } },
+          artistName: { 
+            $first: { 
+              $cond: {
+                if: { $isArray: '$tracks.artists' },
+                then: { $arrayElemAt: ['$tracks.artists', 0] },
+                else: '$tracks.artistName'
+              }
+            }
+          },
+          artists: { $first: '$tracks.artists' },
+          albumImage: { $first: '$tracks.albumImage' },
+          albumImages: { $first: '$tracks.album.images' },
+          previewUrl: { $first: '$tracks.previewUrl' },
+          spotifyUrl: { $first: '$tracks.spotifyUrl' },
+          duration_ms: { $first: { $ifNull: ['$tracks.duration_ms', '$tracks.durationMs', 0] } },
+          album: { $first: '$tracks.album' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }, // ✅ CORRECTION : Limité à 5 au lieu de 10
+      {
+        $project: {
+          trackId: '$_id',
+          trackName: { $ifNull: ['$trackName', '$name'] },
+          name: { $ifNull: ['$name', '$trackName'] },
+          artistName: {
+            $cond: {
+              if: { $isArray: '$artists' },
+              then: { 
+                $reduce: {
+                  input: '$artists',
+                  initialValue: '',
+                  in: { 
+                    $concat: [
+                      '$$value',
+                      { $cond: [{ $eq: ['$$value', ''] }, '', ', '] },
+                      { $ifNull: ['$$this.name', { $toString: '$$this' }] }
+                    ]
+                  }
+                }
+              },
+              else: { $ifNull: ['$artistName', 'Artiste inconnu'] }
+            }
+          },
+          albumImage: {
+            $ifNull: [
+              '$albumImage',
+              { $arrayElemAt: ['$albumImages.url', 0] },
+              '/thumbnail-placeholder.jpg'
+            ]
+          },
+          previewUrl: '$previewUrl',
+          spotifyUrl: '$spotifyUrl',
+          duration_ms: { $ifNull: ['$duration_ms', 0] },
+          album: { $ifNull: ['$album', { name: 'Album inconnu' }] },
+          count: 1,
+          _id: 0
+        }
+      }
+    ]);
+
+    res.json(popularTracks);
+  } catch (e) {
+    console.error('Erreur popular-tracks:', e);
+    res.status(500).json({ message: "Erreur morceaux populaires", error: e.message });
+  }
+});
+
+// Croissance des playlists (7 derniers jours)
+router.get('/admin/growth', verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    const growth = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      const count = await Playlist.countDocuments({
+        createdAt: {
+          $gte: date,
+          $lt: nextDate
+        }
+      });
+
+      growth.push({
+        date: date.toISOString(),
+        label: date.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        count
+      });
+    }
+
+    res.json(growth);
+  } catch (e) {
+    console.error('Erreur growth:', e);
+    res.status(500).json({ message: 'Erreur growth', error: e.message });
+  }
+});
+
+// NOUVEAU - Playlists contenant un track spécifique
+router.get('/admin/track/:trackId', verifyAdmin, async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    
+    const playlists = await Playlist.find({
+      'tracks.trackId': trackId
+    }).lean();
+    
+    // Enrichir avec les usernames
+    const enriched = await Promise.all(playlists.map(async (pl) => {
+      const user = await User.findById(pl.userId).select('username');
+      return {
+        ...pl,
+        username: user?.username || 'Anonyme'
+      };
+    }));
+    
+    res.json({ 
+      success: true, 
+      playlists: enriched 
+    });
+  } catch (e) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors de la recherche des playlists', 
+      error: e.message 
+    });
   }
 });
 

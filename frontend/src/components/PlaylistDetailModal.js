@@ -5,23 +5,13 @@ const PlaylistDetailModal = ({
   playlist, 
   onClose, 
   onDelete, 
-  onRename,
-  onEditTracks 
+  onRename
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
   const audioRef = useRef(null);
 
-  // Logs de débogage (hook 1)
-  useEffect(() => {
-    console.log('🎵 PlaylistDetailModal mounted with playlist:', {
-      name: playlist?.name,
-      tracksCount: playlist?.tracks?.length || 0,
-      tracks: playlist?.tracks
-    });
-  }, [playlist]);
-
-  // Helpers (utilisables avant rendu)
+  // Helpers
   const getPreviewUrl = (track) => track?.previewUrl || track?.preview_url || null;
   const getTrackImage = (track) => {
     if (!track) return '/thumbnail-placeholder.jpg';
@@ -30,15 +20,7 @@ const PlaylistDetailModal = ({
            track.album?.images?.[1]?.url ||
            '/thumbnail-placeholder.jpg';
   };
-  const getCoverImages = (tracks) => {
-    if (!tracks || tracks.length === 0) return [];
-    
-    return tracks
-      .map(t => getTrackImage(t))
-      .filter(img => img !== '/thumbnail-placeholder.jpg')
-      .slice(0, 4);
-  };
-
+  
   const getTrackName = (track) => track?.trackName || track?.name || 'Titre inconnu';
   const getArtistName = (track) => {
     if (track?.artistName) return track.artistName;
@@ -47,6 +29,7 @@ const PlaylistDetailModal = ({
     }
     return 'Artiste inconnu';
   };
+  
   const formatDuration = (ms) => {
     if (!ms || isNaN(ms)) return '0:00';
     const minutes = Math.floor(ms / 60000);
@@ -54,7 +37,7 @@ const PlaylistDetailModal = ({
     return `${minutes}:${seconds}`;
   };
 
-  // Audio player (hook 2) — installé inconditionnellement
+  // Audio player
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -68,11 +51,10 @@ const PlaylistDetailModal = ({
     return () => audio.removeEventListener('ended', onEnded);
   }, []);
 
-  // Play preview (fonction)
   const playPreview = (track) => {
     const url = getPreviewUrl(track);
     if (!url) {
-      alert('Aucun aperçu disponible pour ce morceau');
+      alert('Aucun aperçu disponible');
       return;
     }
 
@@ -89,27 +71,25 @@ const PlaylistDetailModal = ({
             setIsPlaying(true);
           })
           .catch(err => {
-            console.error('Erreur lecture audio:', err);
+            console.error('Erreur lecture:', err);
             alert('Impossible de lire cet aperçu');
           });
       }
     }
   };
 
-  // Extraction robuste des données (sécurisé si playlist undefined)
+  // Données
   const tracks = Array.isArray(playlist?.tracks) ? playlist.tracks : [];
-  const playlistName = playlist?.name || playlist?.title || 'Sans nom';
+  const playlistName = playlist?.name || 'Sans nom';
   const username = playlist?.username || 'Anonyme';
   const createdAt = playlist?.createdAt ? new Date(playlist.createdAt).toLocaleDateString('fr-FR') : 'N/A';
 
   const totalTracks = tracks.length;
   const totalDuration = tracks.reduce((sum, t) => sum + (t?.duration_ms || t?.durationMs || 0), 0);
   const totalMinutes = Math.floor(totalDuration / 60000);
-  const hasPreview = tracks.filter(t => t?.previewUrl || t?.preview_url).length;
+  const hasPreview = tracks.filter(t => getPreviewUrl(t)).length;
 
-  // Si aucune playlist fournie, ne rien afficher (hooks déjà exécutés)
   if (!playlist) {
-    console.warn('⚠️ PlaylistDetailModal: playlist is null/undefined');
     return null;
   }
 
@@ -120,12 +100,14 @@ const PlaylistDetailModal = ({
         {/* Header */}
         <div className="modal-header">
           <div className="playlist-header-info">
-            {/* Cover avec collage */}
             <div className="playlist-cover-large">
               {(() => {
-                const coverImages = getCoverImages(tracks);
+                const images = tracks
+                  .map(t => getTrackImage(t))
+                  .filter(img => img !== '/thumbnail-placeholder.jpg')
+                  .slice(0, 4);
                 
-                if (coverImages.length === 0) {
+                if (images.length === 0) {
                   return (
                     <div className="empty-cover">
                       <i className="bi bi-music-note-list"></i>
@@ -133,13 +115,13 @@ const PlaylistDetailModal = ({
                   );
                 }
                 
-                if (coverImages.length === 1) {
-                  return <img src={coverImages[0]} alt={playlistName} />;
+                if (images.length === 1) {
+                  return <img src={images[0]} alt={playlistName} />;
                 }
                 
                 return (
-                  <div className={`cover-collage cover-${coverImages.length}`}>
-                    {coverImages.map((img, i) => (
+                  <div className={`cover-collage cover-${images.length}`}>
+                    {images.map((img, i) => (
                       <div key={i} className={`collage-item item-${i + 1}`}>
                         <img src={img} alt="" />
                       </div>
@@ -149,7 +131,6 @@ const PlaylistDetailModal = ({
               })()}
             </div>
 
-            {/* Metadata */}
             <div className="playlist-metadata">
               <h2>{playlistName}</h2>
               <div className="playlist-info-row">
@@ -176,7 +157,6 @@ const PlaylistDetailModal = ({
             </div>
           </div>
 
-          {/* Actions header */}
           <div className="modal-actions-header">
             {onRename && (
               <button 
@@ -190,15 +170,6 @@ const PlaylistDetailModal = ({
                 title="Renommer"
               >
                 <i className="bi bi-pencil"></i>
-              </button>
-            )}
-            {onEditTracks && (
-              <button 
-                className="btn-modal-action warning"
-                onClick={() => onEditTracks(playlist)}
-                title="Éditer les tracks"
-              >
-                <i className="bi bi-music-note-beamed"></i>
               </button>
             )}
             {onDelete && (
@@ -224,7 +195,7 @@ const PlaylistDetailModal = ({
           </div>
         </div>
 
-        {/* Body - Liste des tracks */}
+        {/* Body */}
         <div className="modal-body">
           {tracks.length === 0 ? (
             <div className="empty-playlist">
@@ -243,7 +214,6 @@ const PlaylistDetailModal = ({
                     key={track?.id || track?.trackId || index} 
                     className={`track-item ${isCurrentlyPlaying ? 'playing' : ''}`}
                   >
-                    {/* Numéro */}
                     <div className="track-number">
                       {isCurrentlyPlaying ? (
                         <i className="bi bi-volume-up-fill"></i>
@@ -252,7 +222,6 @@ const PlaylistDetailModal = ({
                       )}
                     </div>
 
-                    {/* Cover */}
                     <div className="track-cover">
                       <img src={getTrackImage(track)} alt={getTrackName(track)} />
                       {preview && (
@@ -265,23 +234,19 @@ const PlaylistDetailModal = ({
                       )}
                     </div>
 
-                    {/* Info */}
                     <div className="track-info">
                       <div className="track-name">{getTrackName(track)}</div>
                       <div className="track-artist">{getArtistName(track)}</div>
                     </div>
 
-                    {/* Album */}
                     <div className="track-album">
                       {track?.album?.name || track?.albumName || '-'}
                     </div>
 
-                    {/* Durée */}
                     <div className="track-duration">
                       {formatDuration(track?.duration_ms || track?.durationMs)}
                     </div>
 
-                    {/* Actions */}
                     <div className="track-actions">
                       {track?.spotifyUrl && (
                         <a 
@@ -305,10 +270,8 @@ const PlaylistDetailModal = ({
           )}
         </div>
 
-        {/* Audio player (hidden) */}
         <audio ref={audioRef} style={{ display: 'none' }} />
 
-        {/* Mini player */}
         {currentTrack && isPlaying && (
           <div className="mini-player">
             <img src={getTrackImage(currentTrack)} alt="" className="mini-player-cover" />
